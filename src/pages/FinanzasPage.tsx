@@ -17,6 +17,7 @@ import NuevoCorteDialog from '@/components/finanzas/NuevoCorteDialog';
 import CortesHistorial from '@/components/finanzas/CortesHistorial';
 import ReporteSemanalDialog from '@/components/finanzas/ReporteSemanalDialog';
 import MetaMensual from '@/components/finanzas/MetaMensual';
+import MetaHistorial from '@/components/finanzas/MetaHistorial';
 
 export default function FinanzasPage() {
   const { paneles, suscripciones, pagos, clientes, cortes } = useData();
@@ -134,6 +135,9 @@ export default function FinanzasPage() {
 
       {/* Monthly goal */}
       <MetaMensual totalIngresos={totalIngresos} mesKey={fmtDate(selectedDate, 'yyyy-MM')} />
+
+      {/* Goal history */}
+      <MetaHistorial currentMesKey={fmtDate(selectedDate, 'yyyy-MM')} />
 
       {/* Chart */}
       <GananciaChart />
