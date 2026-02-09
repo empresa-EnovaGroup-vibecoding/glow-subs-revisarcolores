@@ -116,18 +116,23 @@
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
+
+  /* When content theme CSS vars are set, override bg-card and bg-background */
+  .bg-card {
+    background-color: var(--content-card-bg, hsl(var(--card)));
+  }
+
+  .bg-background {
+    background-color: var(--content-bg, hsl(var(--background)));
+  }
 }
 
 @layer utilities {
   .glass-card {
     @apply rounded-2xl p-6 transition-all duration-200 hover:-translate-y-0.5;
-    background-color: hsl(var(--card));
+    background-color: var(--content-card-bg, hsl(var(--card)));
+    color: var(--content-text, inherit);
     box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
-  }
-
-  .dark .glass-card {
-    background-color: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
   .glass-card:hover {
@@ -136,32 +141,13 @@
 
   .stat-card {
     @apply rounded-2xl p-6 transition-all duration-200 hover:-translate-y-0.5;
-    background-color: hsl(var(--card));
+    background-color: var(--content-card-bg, hsl(var(--card)));
+    color: var(--content-text, inherit);
     box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
-  }
-
-  .dark .stat-card {
-    background-color: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
   .stat-card:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.06);
-  }
-
-  /* Dark mode semi-transparent surfaces */
-  .dark [data-slot="card"],
-  .dark .bg-card {
-    background-color: rgba(255, 255, 255, 0.05) !important;
-    border-color: rgba(255, 255, 255, 0.06);
-  }
-
-  .dark [role="dialog"],
-  .dark [data-radix-popper-content-wrapper] > div,
-  .dark .bg-popover {
-    background-color: rgba(15, 23, 42, 0.95) !important;
-    border-color: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(16px);
   }
 
   .alert-badge {
@@ -175,11 +161,13 @@
   .page-title {
     @apply text-[28px] font-bold tracking-tight;
     letter-spacing: -0.02em;
+    color: var(--content-text-heading, inherit);
   }
 
   .page-subtitle {
-    @apply text-sm font-medium text-muted-foreground uppercase;
+    @apply text-sm font-medium uppercase;
     letter-spacing: 0.05em;
+    color: var(--content-text-secondary, hsl(var(--muted-foreground)));
   }
 
   .metric-number {
