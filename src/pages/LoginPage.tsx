@@ -8,29 +8,19 @@ import { Eye, EyeOff } from 'lucide-react';
 import logoNexus from '@/assets/logo-nexus.png';
 
 export default function LoginPage() {
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setMessage('');
     setSubmitting(true);
-
-    if (isSignUp) {
-      const { error } = await signUp(email, password);
-      if (error) setError(error);
-      else setMessage('Cuenta creada. Revisa tu email para confirmar.');
-    } else {
-      const { error } = await signIn(email, password);
-      if (error) setError(error);
-    }
+    const { error } = await signIn(email, password);
+    if (error) setError(error);
     setSubmitting(false);
   };
 
@@ -40,9 +30,7 @@ export default function LoginPage() {
         <CardHeader className="text-center">
           <img src={logoNexus} alt="Nexus Digital logo" className="mx-auto mb-2 h-12 w-12 rounded-lg object-contain" />
           <CardTitle className="text-xl">Nexus</CardTitle>
-          <CardDescription>
-            {isSignUp ? 'Crea una cuenta para acceder' : 'Inicia sesión para continuar'}
-          </CardDescription>
+          <CardDescription>Inicia sesión para continuar</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -81,11 +69,11 @@ export default function LoginPage() {
               </div>
             </div>
 
+
             {error && <p className="text-sm text-destructive">{error}</p>}
-            {message && <p className="text-sm text-emerald-500">{message}</p>}
 
             <Button type="submit" className="w-full shadow-md" disabled={submitting}>
-              {submitting ? 'Cargando...' : isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}
+              {submitting ? 'Cargando...' : 'Iniciar sesión'}
             </Button>
           </form>
 
