@@ -38,6 +38,8 @@ export interface Servicio {
   id: string;
   nombre: string;
   precioBase: number;
+  precioRefMXN?: number;
+  precioRefCOP?: number;
 }
 
 export type EstadoSuscripcion = 'activa' | 'vencida' | 'cancelada';
