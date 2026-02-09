@@ -14,6 +14,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetSubmitting, setResetSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +26,69 @@ export default function LoginPage() {
     if (error) setError(error);
     setSubmitting(false);
   };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setResetSubmitting(true);
+    const { supabaseExternal } = await import('@/lib/supabaseExternal');
+    const { error } = await supabaseExternal.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) setError(error.message);
+    else setResetSent(true);
+    setResetSubmitting(false);
+  };
+
+  if (forgotMode) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-sm">
+          <CardHeader className="text-center">
+            <img src={logoNexus} alt="Nexus Digital logo" className="mx-auto mb-2 h-12 w-12 rounded-lg object-contain" />
+            <CardTitle className="text-xl">Recuperar contraseña</CardTitle>
+            <CardDescription>
+              {resetSent
+                ? 'Revisa tu email para el enlace de recuperación'
+                : 'Ingresa tu email para recibir un enlace de recuperación'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {resetSent ? (
+              <Button variant="outline" className="w-full" onClick={() => { setForgotMode(false); setResetSent(false); setError(''); }}>
+                Volver al login
+              </Button>
+            ) : (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                    placeholder="tu@email.com"
+                  />
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <Button type="submit" className="w-full shadow-md" disabled={resetSubmitting}>
+                  {resetSubmitting ? 'Enviando...' : 'Enviar enlace'}
+                </Button>
+                <button
+                  type="button"
+                  className="w-full text-sm text-primary hover:text-primary/80 underline transition-colors"
+                  onClick={() => { setForgotMode(false); setError(''); }}
+                >
+                  Volver al login
+                </button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -69,7 +135,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-
             {error && <p className="text-sm text-destructive">{error}</p>}
 
             <Button type="submit" className="w-full shadow-md" disabled={submitting}>
@@ -77,6 +142,15 @@ export default function LoginPage() {
             </Button>
           </form>
 
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              className="text-sm text-muted-foreground hover:text-primary underline transition-colors"
+              onClick={() => { setForgotMode(true); setError(''); }}
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
         </CardContent>
       </Card>
     </div>
