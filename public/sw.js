@@ -24,24 +24,22 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
+  const request = event.request;
 
-  // Skip non-GET and API/supabase requests
+  // NO interceptar llamadas API - dejarlas pasar al network
   if (request.method !== 'GET' || request.url.includes('/rest/') || request.url.includes('/auth/') || request.url.includes('/functions/')) {
+    event.respondWith(fetch(request));
     return;
   }
 
+  // Solo cachear assets estáticos
   event.respondWith(
     caches.match(request).then((cached) => {
-      const fetched = fetch(request).then((response) => {
-        if (response && response.status === 200 && response.type === 'basic') {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-        }
+      return cached || fetch(request).then((response) => {
+        const clone = response.clone();
+        caches.open('nexus-v1').then((cache) => cache.put(request, clone));
         return response;
-      }).catch(() => cached);
-
-      return cached || fetched;
+      });
     })
   );
 });
