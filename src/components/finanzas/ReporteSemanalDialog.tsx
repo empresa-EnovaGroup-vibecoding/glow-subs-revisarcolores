@@ -6,7 +6,7 @@ import {
   startOfDay, eachWeekOfInterval,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ClipboardCopy, FileText, ChevronLeft, ChevronRight, CalendarIcon } from 'lucide-react';
+import { ClipboardCopy, FileText, ChevronLeft, ChevronRight, CalendarIcon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -150,6 +150,74 @@ export default function ReporteSemanalDialog() {
       });
     }
 
+    // --- Month-over-month comparison ---
+    interface MoMComparison {
+      ingresosPrev: number;
+      gastosPrev: number;
+      gananciaPrev: number;
+      clientesNuevosPrev: number;
+      renovacionesPrev: number;
+      pagosPrev: number;
+      ingresosVar: number | null;
+      gastosVar: number | null;
+      gananciaVar: number | null;
+      clientesNuevosVar: number | null;
+      renovacionesVar: number | null;
+      pagosVar: number | null;
+    }
+    let comparativo: MoMComparison | null = null;
+    if (mode === 'mensual') {
+      const prevStart = startOfMonth(subMonths(periodStart, 1));
+      const prevEnd = endOfMonth(prevStart);
+      const inPrev = (dateStr: string) =>
+        isWithinInterval(new Date(dateStr), { start: prevStart, end: prevEnd });
+
+      const pagosPrev = pagos.filter(p => inPrev(p.fecha));
+      const ingresosPrev = Math.round(pagosPrev.reduce((sum, p) => sum + p.monto, 0) * 100) / 100;
+      const gastosPrev = Math.round(totalGastosPeriodo * 100) / 100; // same panel costs
+      const gananciaPrev = Math.round((ingresosPrev - gastosPrev) * 100) / 100;
+
+      let clientesNuevosPrev = 0;
+      for (const cliente of clientes) {
+        const subs = suscripciones.filter(s => s.clienteId === cliente.id);
+        if (subs.length === 0) continue;
+        const earliest = [...subs].sort(
+          (a, b) => new Date(a.fechaInicio).getTime() - new Date(b.fechaInicio).getTime()
+        )[0];
+        if (inPrev(earliest.fechaInicio)) clientesNuevosPrev++;
+      }
+
+      let renovacionesPrev = 0;
+      for (const sub of suscripciones) {
+        if (!inPrev(sub.fechaInicio)) continue;
+        const isRen = suscripciones.some(
+          s => s.clienteId === sub.clienteId && s.servicioId === sub.servicioId &&
+            s.id !== sub.id && new Date(s.fechaInicio).getTime() < new Date(sub.fechaInicio).getTime()
+        );
+        if (isRen) renovacionesPrev++;
+      }
+
+      const calcVar = (current: number, prev: number): number | null => {
+        if (prev === 0) return current > 0 ? 100 : null;
+        return Math.round(((current - prev) / Math.abs(prev)) * 100);
+      };
+
+      comparativo = {
+        ingresosPrev,
+        gastosPrev,
+        gananciaPrev,
+        clientesNuevosPrev,
+        renovacionesPrev,
+        pagosPrev: pagosPrev.length,
+        ingresosVar: calcVar(totalPagosUSD, ingresosPrev),
+        gastosVar: calcVar(totalGastosPeriodo, gastosPrev),
+        gananciaVar: calcVar(gananciaNeta, gananciaPrev),
+        clientesNuevosVar: calcVar(nuevosClientes.length, clientesNuevosPrev),
+        renovacionesVar: calcVar(renovaciones.length, renovacionesPrev),
+        pagosVar: calcVar(pagosPeriodo.length, pagosPrev.length),
+      };
+    }
+
     return {
       nuevosClientes, renovaciones,
       pagosCount: pagosPeriodo.length,
@@ -163,6 +231,7 @@ export default function ReporteSemanalDialog() {
       clientesActivosTotal,
       cancelaciones,
       weeklyBreakdown,
+      comparativo,
     };
   }, [clientes, suscripciones, pagos, paneles, getServicioById, periodStart, periodEnd, mode]);
 
@@ -233,6 +302,19 @@ export default function ReporteSemanalDialog() {
     const gastoLabel = mode === 'semanal' ? 'Gastos (prorrateo)' : 'Gastos';
     lines.push(`   ${gastoLabel}: $${r.totalGastosPeriodo} USD`);
     lines.push(`   *Ganancia neta: $${r.gananciaNeta} USD*`);
+
+    if (mode === 'mensual' && r.comparativo) {
+      const c = r.comparativo;
+      const prevMonthLabel = format(subMonths(periodStart, 1), 'MMMM', { locale: es });
+      const fmtVar = (v: number | null) => v === null ? '—' : `${v > 0 ? '+' : ''}${v}%`;
+      lines.push('');
+      lines.push(`📊 *Comparativo vs ${prevMonthLabel}*`);
+      lines.push(`   Ingresos: $${c.ingresosPrev} → $${r.totalPagosUSD} (${fmtVar(c.ingresosVar)})`);
+      lines.push(`   Ganancia: $${c.gananciaPrev} → $${r.gananciaNeta} (${fmtVar(c.gananciaVar)})`);
+      lines.push(`   Nuevos clientes: ${c.clientesNuevosPrev} → ${r.nuevosClientes.length} (${fmtVar(c.clientesNuevosVar)})`);
+      lines.push(`   Renovaciones: ${c.renovacionesPrev} → ${r.renovaciones.length} (${fmtVar(c.renovacionesVar)})`);
+      lines.push(`   Pagos: ${c.pagosPrev} → ${r.pagosCount} (${fmtVar(c.pagosVar)})`);
+    }
 
     return lines.join('\n');
   };
@@ -500,6 +582,23 @@ export default function ReporteSemanalDialog() {
             </div>
           </div>
 
+          {/* Month-over-month comparison */}
+          {mode === 'mensual' && r.comparativo && (
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+              <h4 className="text-xs font-semibold flex items-center gap-1.5">
+                📊 Comparativo vs {format(subMonths(periodStart, 1), 'MMMM', { locale: es })}
+              </h4>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                <ComparisonRow label="Ingresos" current={`$${r.totalPagosUSD}`} prev={`$${r.comparativo.ingresosPrev}`} variation={r.comparativo.ingresosVar} positiveIsGood />
+                <ComparisonRow label="Ganancia" current={`$${r.gananciaNeta}`} prev={`$${r.comparativo.gananciaPrev}`} variation={r.comparativo.gananciaVar} positiveIsGood />
+                <ComparisonRow label="Nuevos clientes" current={String(r.nuevosClientes.length)} prev={String(r.comparativo.clientesNuevosPrev)} variation={r.comparativo.clientesNuevosVar} positiveIsGood />
+                <ComparisonRow label="Renovaciones" current={String(r.renovaciones.length)} prev={String(r.comparativo.renovacionesPrev)} variation={r.comparativo.renovacionesVar} positiveIsGood />
+                <ComparisonRow label="Pagos" current={String(r.pagosCount)} prev={String(r.comparativo.pagosPrev)} variation={r.comparativo.pagosVar} positiveIsGood />
+                <ComparisonRow label="Gastos" current={`$${r.totalGastosPeriodo}`} prev={`$${r.comparativo.gastosPrev}`} variation={r.comparativo.gastosVar} positiveIsGood={false} />
+              </div>
+            </div>
+          )}
+
           {/* Copy button */}
           <Button className="w-full gap-2" onClick={handleCopiar}>
             <ClipboardCopy className="h-4 w-4" />
@@ -531,4 +630,39 @@ function Section({ emoji, title, count, color, children }: {
 
 function EmptyLine() {
   return <li className="text-xs text-muted-foreground list-none -ml-5">Sin registros</li>;
+}
+
+function ComparisonRow({ label, current, prev, variation, positiveIsGood }: {
+  label: string; current: string; prev: string; variation: number | null; positiveIsGood: boolean;
+}) {
+  const isPositive = variation !== null && variation > 0;
+  const isNegative = variation !== null && variation < 0;
+  const isGood = positiveIsGood ? isPositive : isNegative;
+  const isBad = positiveIsGood ? isNegative : isPositive;
+
+  return (
+    <div className="flex items-center justify-between text-xs py-1">
+      <div className="flex flex-col">
+        <span className="text-muted-foreground text-[10px]">{label}</span>
+        <span className="font-medium">{prev} → {current}</span>
+      </div>
+      <div className="flex items-center gap-1">
+        {variation === null ? (
+          <span className="flex items-center gap-0.5 text-muted-foreground">
+            <Minus className="h-3 w-3" /> —
+          </span>
+        ) : (
+          <span className={cn(
+            'flex items-center gap-0.5 text-[11px] font-semibold',
+            isGood && 'text-emerald-600 dark:text-emerald-400',
+            isBad && 'text-destructive',
+            !isGood && !isBad && 'text-muted-foreground',
+          )}>
+            {isPositive ? <TrendingUp className="h-3 w-3" /> : isNegative ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+            {variation > 0 ? '+' : ''}{variation}%
+          </span>
+        )}
+      </div>
+    </div>
+  );
 }
