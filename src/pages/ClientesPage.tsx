@@ -139,7 +139,7 @@ export default function ClientesPage() {
               <DialogTitle>Nuevo Cliente</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-5">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label>Nombre</Label>
                   <Input

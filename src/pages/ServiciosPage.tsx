@@ -58,7 +58,7 @@ export default function ServiciosPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-lg font-semibold">Catálogo de Servicios</h1>
           <p className="text-sm text-muted-foreground">{servicios.length} servicios configurados</p>
@@ -96,7 +96,7 @@ export default function ServiciosPage() {
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Referencia MXN (opcional)</Label>
                   <Input

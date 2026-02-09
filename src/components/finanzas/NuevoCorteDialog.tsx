@@ -104,14 +104,14 @@ export default function NuevoCorteDialog() {
           Nuevo Corte
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nuevo Corte P2P</DialogTitle>
           <p className="text-xs text-muted-foreground">Convertir pagos en moneda local a USDT vía Binance P2P</p>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Fecha + País */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Fecha del corte</Label>
               <Input
@@ -183,7 +183,7 @@ export default function NuevoCorteDialog() {
           </div>
 
           {/* Comisión */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Comisión P2P (%)</Label>
               <Input
@@ -222,7 +222,7 @@ export default function NuevoCorteDialog() {
           </div>
 
           {/* USDT calculado + real */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>USDT calculado</Label>
               <div className="flex items-center h-10 px-3 rounded-md border border-input bg-muted/50 text-sm font-medium">
