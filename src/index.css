@@ -149,11 +149,19 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.06);
   }
 
-  /* Dark mode semi-transparent cards for shadcn Card component */
+  /* Dark mode semi-transparent surfaces */
   .dark [data-slot="card"],
   .dark .bg-card {
     background-color: rgba(255, 255, 255, 0.05) !important;
     border-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .dark [role="dialog"],
+  .dark [data-radix-popper-content-wrapper] > div,
+  .dark .bg-popover {
+    background-color: rgba(15, 23, 42, 0.95) !important;
+    border-color: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px);
   }
 
   .alert-badge {
