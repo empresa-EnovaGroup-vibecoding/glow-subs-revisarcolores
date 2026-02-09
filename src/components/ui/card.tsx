@@ -2,11 +2,16 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
+const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, style, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("rounded-2xl border-0 bg-card text-card-foreground transition-all duration-200 hover:-translate-y-0.5", className)}
-    style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)' }}
+    className={cn("rounded-2xl border-0 text-card-foreground transition-all duration-200 hover:-translate-y-0.5", className)}
+    style={{
+      backgroundColor: 'var(--content-card-bg, hsl(var(--card)))',
+      color: 'var(--content-text, inherit)',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)',
+      ...style,
+    }}
     {...props}
   />
 ));
