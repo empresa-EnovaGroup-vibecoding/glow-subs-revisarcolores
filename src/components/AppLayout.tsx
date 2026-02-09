@@ -174,7 +174,7 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
 
       {/* Main content */}
       <div
-        className="flex flex-1 flex-col overflow-hidden"
+        className="flex flex-1 flex-col overflow-hidden bg-background text-foreground"
         style={{
           backgroundColor: isCustom ? 'var(--content-bg)' : undefined,
           color: isCustom ? 'var(--content-text)' : undefined,
@@ -182,7 +182,7 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
         }}
       >
         <header
-          className="flex h-14 items-center gap-4 border-b border-border px-4 lg:px-8"
+          className="flex h-14 items-center gap-4 border-b border-border px-4 lg:px-8 bg-card"
           style={{
             backgroundColor: isCustom ? 'var(--content-card-bg)' : undefined,
             borderColor: isCustom ? 'var(--content-hover-bg)' : undefined,
@@ -199,7 +199,7 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
         </header>
 
         <main
-          className="flex-1 overflow-y-auto p-4 lg:p-8"
+          className="flex-1 overflow-y-auto p-4 lg:p-8 bg-background"
           style={{
             backgroundColor: isCustom ? 'var(--content-bg)' : undefined,
             color: isCustom ? 'var(--content-text)' : undefined,
