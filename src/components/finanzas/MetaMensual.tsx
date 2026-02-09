@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Target, Settings, Check, X } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Target, Settings, Check, X, Trophy, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
@@ -7,6 +7,7 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface Props {
   totalIngresos: number;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 const STORAGE_KEY = 'finanzas_meta_mensual';
+const NOTIF_KEY = 'finanzas_meta_notificaciones';
 
 function getStoredGoals(): Record<string, number> {
   try {
@@ -30,6 +32,28 @@ function setStoredGoal(mesKey: string, value: number) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
 }
 
+function getNotifiedMilestones(mesKey: string): number[] {
+  try {
+    const raw = localStorage.getItem(NOTIF_KEY);
+    const data = raw ? JSON.parse(raw) : {};
+    return data[mesKey] || [];
+  } catch {
+    return [];
+  }
+}
+
+function markMilestoneNotified(mesKey: string, milestone: number) {
+  try {
+    const raw = localStorage.getItem(NOTIF_KEY);
+    const data = raw ? JSON.parse(raw) : {};
+    if (!data[mesKey]) data[mesKey] = [];
+    if (!data[mesKey].includes(milestone)) data[mesKey].push(milestone);
+    localStorage.setItem(NOTIF_KEY, JSON.stringify(data));
+  } catch {
+    // ignore
+  }
+}
+
 export default function MetaMensual({ totalIngresos, mesKey }: Props) {
   const [meta, setMeta] = useState<number>(0);
   const [editValue, setEditValue] = useState('');
@@ -39,6 +63,45 @@ export default function MetaMensual({ totalIngresos, mesKey }: Props) {
     const goals = getStoredGoals();
     setMeta(goals[mesKey] || 0);
   }, [mesKey]);
+
+  // Milestone notifications
+  const hasNotifiedRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    // Reset tracked notifications when month changes
+    hasNotifiedRef.current = new Set(getNotifiedMilestones(mesKey));
+  }, [mesKey]);
+
+  useEffect(() => {
+    if (meta <= 0) return;
+    const pct = Math.round((totalIngresos / meta) * 100);
+
+    const milestones: { threshold: number; title: string; description: string; icon: string }[] = [
+      {
+        threshold: 80,
+        title: '🔥 ¡80% de la meta alcanzado!',
+        description: `Llevas $${totalIngresos.toLocaleString(undefined, { minimumFractionDigits: 2 })} de $${meta.toLocaleString()} USD. ¡Ya casi llegas!`,
+        icon: '🔥',
+      },
+      {
+        threshold: 100,
+        title: '🏆 ¡Meta mensual alcanzada!',
+        description: `¡Felicidades! Alcanzaste tu meta de $${meta.toLocaleString()} USD con $${totalIngresos.toLocaleString(undefined, { minimumFractionDigits: 2 })} en ingresos.`,
+        icon: '🏆',
+      },
+    ];
+
+    for (const m of milestones) {
+      if (pct >= m.threshold && !hasNotifiedRef.current.has(m.threshold)) {
+        hasNotifiedRef.current.add(m.threshold);
+        markMilestoneNotified(mesKey, m.threshold);
+        toast.success(m.title, {
+          description: m.description,
+          duration: 8000,
+        });
+      }
+    }
+  }, [totalIngresos, meta, mesKey]);
 
   const porcentaje = useMemo(() => {
     if (meta <= 0) return 0;
