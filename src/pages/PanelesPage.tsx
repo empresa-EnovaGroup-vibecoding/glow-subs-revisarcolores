@@ -5,6 +5,7 @@ import { Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import PanelCard from '@/components/PanelCard';
 import PanelFormDialog from '@/components/PanelFormDialog';
+import PanelesResumen from '@/components/PanelesResumen';
 import { Input } from '@/components/ui/input';
 
 const SERVICIOS_FILTER = ['Todos', 'ChatGPT', 'CapCut', 'Canva', 'Veo 3', 'Claude', 'Midjourney'];
@@ -34,6 +35,7 @@ export default function PanelesPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
+
         <div>
           <h1 className="text-lg font-semibold">Paneles</h1>
           <p className="text-sm text-muted-foreground">Gestiona tus paneles de IA</p>
@@ -43,6 +45,9 @@ export default function PanelesPage() {
           Nuevo Panel
         </Button>
       </div>
+
+      {/* Resumen */}
+      <PanelesResumen paneles={paneles} />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
