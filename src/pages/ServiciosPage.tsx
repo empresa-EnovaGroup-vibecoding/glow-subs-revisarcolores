@@ -18,19 +18,25 @@ export default function ServiciosPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Servicio | null>(null);
 
-  const [form, setForm] = useState({ nombre: '', precioBase: 0 });
+  const [form, setForm] = useState({ nombre: '', precioBase: '', precioRefMXN: '', precioRefCOP: '' });
 
   const resetForm = () => {
-    setForm({ nombre: '', precioBase: 0 });
+    setForm({ nombre: '', precioBase: '', precioRefMXN: '', precioRefCOP: '' });
     setEditing(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const data = {
+      nombre: form.nombre,
+      precioBase: parseFloat(form.precioBase) || 0,
+      precioRefMXN: form.precioRefMXN ? parseFloat(form.precioRefMXN) : undefined,
+      precioRefCOP: form.precioRefCOP ? parseFloat(form.precioRefCOP) : undefined,
+    };
     if (editing) {
-      updateServicio({ ...editing, ...form });
+      updateServicio({ ...editing, ...data });
     } else {
-      addServicio(form);
+      addServicio(data);
     }
     setOpen(false);
     resetForm();
@@ -38,7 +44,12 @@ export default function ServiciosPage() {
 
   const handleEdit = (servicio: Servicio) => {
     setEditing(servicio);
-    setForm({ nombre: servicio.nombre, precioBase: servicio.precioBase });
+    setForm({
+      nombre: servicio.nombre,
+      precioBase: String(servicio.precioBase),
+      precioRefMXN: servicio.precioRefMXN != null ? String(servicio.precioRefMXN) : '',
+      precioRefCOP: servicio.precioRefCOP != null ? String(servicio.precioRefCOP) : '',
+    });
     setOpen(true);
   };
 
@@ -74,16 +85,40 @@ export default function ServiciosPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Precio Base</Label>
+                <Label>Precio Base (USD)</Label>
                 <Input
                   type="number"
                   min={0}
-                  step={100}
+                  step={0.01}
                   value={form.precioBase}
-                  onChange={(e) => setForm(f => ({ ...f, precioBase: parseFloat(e.target.value) || 0 }))}
-                  placeholder="0"
+                  onChange={(e) => setForm(f => ({ ...f, precioBase: e.target.value }))}
+                  placeholder="5.00"
                   required
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Referencia MXN (opcional)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={form.precioRefMXN}
+                    onChange={(e) => setForm(f => ({ ...f, precioRefMXN: e.target.value }))}
+                    placeholder="100"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Referencia COP (opcional)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={form.precioRefCOP}
+                    onChange={(e) => setForm(f => ({ ...f, precioRefCOP: e.target.value }))}
+                    placeholder="20000"
+                  />
+                </div>
               </div>
               <Button type="submit" className="w-full">
                 {editing ? 'Guardar Cambios' : 'Crear Servicio'}
@@ -109,8 +144,20 @@ export default function ServiciosPage() {
               <div key={servicio.id} className="stat-card flex items-center justify-between">
                 <div className="space-y-1">
                   <h3 className="font-semibold">{servicio.nombre}</h3>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>${servicio.precioBase.toLocaleString()}</span>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                    <span>${servicio.precioBase.toLocaleString()} USD</span>
+                    {servicio.precioRefMXN != null && (
+                      <>
+                        <span>·</span>
+                        <span>MXN${servicio.precioRefMXN.toLocaleString()}</span>
+                      </>
+                    )}
+                    {servicio.precioRefCOP != null && (
+                      <>
+                        <span>·</span>
+                        <span>COP${servicio.precioRefCOP.toLocaleString()}</span>
+                      </>
+                    )}
                     <span>·</span>
                     <span>{subsCount} suscriptor{subsCount !== 1 ? 'es' : ''}</span>
                   </div>
