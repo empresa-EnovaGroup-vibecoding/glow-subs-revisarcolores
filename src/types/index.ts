@@ -52,7 +52,9 @@ export interface Suscripcion {
   estado: EstadoSuscripcion;
   fechaInicio: string;
   fechaVencimiento: string; // auto: fechaInicio + 30 days
-  precioCobrado: number;
+  precioCobrado: number; // always in USD — used for all financial calculations
+  precioLocal?: number; // optional reference price in client's local currency
+  monedaLocal?: 'MXN' | 'COP'; // only set for Mexico/Colombia
   credencialEmail?: string;
   credencialPassword?: string;
   notas?: string;

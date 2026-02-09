@@ -16,15 +16,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-const PAIS_MONEDA_SYMBOL: Record<string, string> = {
-  Venezuela: '$',
-  Ecuador: '$',
-  Colombia: 'COP$',
-  Mexico: 'MXN$',
-};
-
-function getMonedaSymbol(pais?: PaisCliente): string {
-  return pais ? (PAIS_MONEDA_SYMBOL[pais] || '$') : '$';
+function getMonedaForPais(pais?: PaisCliente): 'MXN' | 'COP' | null {
+  if (pais === 'Mexico') return 'MXN';
+  if (pais === 'Colombia') return 'COP';
+  return null;
 }
 
 interface Props {
@@ -42,6 +37,7 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
     servicioId: sub.servicioId,
     panelId: sub.panelId || '',
     precioCobrado: String(sub.precioCobrado),
+    precioLocal: sub.precioLocal != null ? String(sub.precioLocal) : '',
     fechaInicio: sub.fechaInicio,
     fechaVencimiento: sub.fechaVencimiento,
     credencialEmail: sub.credencialEmail || '',
@@ -49,7 +45,7 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
   });
 
   const cliente = clientes.find(c => c.id === sub.clienteId);
-  const monedaSymbol = getMonedaSymbol(cliente?.pais);
+  const monedaLocal = getMonedaForPais(cliente?.pais);
 
   const servicio = getServicioById(sub.servicioId);
   const panel = sub.panelId ? getPanelById(sub.panelId) : undefined;
@@ -88,11 +84,20 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
   const progress = getProgress();
   const progressColor = getProgressColor(diasRestantes, sub.estado);
 
+  const formatPrecioDisplay = () => {
+    let display = `$${sub.precioCobrado} USD`;
+    if (sub.precioLocal && sub.monedaLocal) {
+      display += ` (${sub.precioLocal.toLocaleString()} ${sub.monedaLocal})`;
+    }
+    return display;
+  };
+
   const handleStartEdit = () => {
     setEditForm({
       servicioId: sub.servicioId,
       panelId: sub.panelId || '',
       precioCobrado: String(sub.precioCobrado),
+      precioLocal: sub.precioLocal != null ? String(sub.precioLocal) : '',
       fechaInicio: sub.fechaInicio,
       fechaVencimiento: sub.fechaVencimiento,
       credencialEmail: sub.credencialEmail || '',
@@ -106,11 +111,14 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
   };
 
   const handleSaveEdit = () => {
+    const precioLocalNum = parseFloat(editForm.precioLocal) || undefined;
     updateSuscripcion({
       ...sub,
       servicioId: editForm.servicioId,
       panelId: editForm.panelId || undefined,
       precioCobrado: parseFloat(editForm.precioCobrado) || 0,
+      precioLocal: precioLocalNum,
+      monedaLocal: monedaLocal && precioLocalNum ? monedaLocal : undefined,
       fechaInicio: editForm.fechaInicio,
       fechaVencimiento: editForm.fechaVencimiento,
       credencialEmail: editForm.credencialEmail || undefined,
@@ -172,18 +180,37 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className={`grid gap-2 ${monedaLocal ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <div className="space-y-1.5">
-            <Label className="text-xs">Precio Cobrado ({monedaSymbol})</Label>
+            <Label className="text-xs">Precio USD</Label>
             <Input
-              type="number"
-              min={0}
-              step={0.01}
+              type="text"
+              inputMode="decimal"
               className="h-8 text-xs"
               value={editForm.precioCobrado}
-              onChange={e => setEditForm(f => ({ ...f, precioCobrado: e.target.value }))}
+              onChange={e => {
+                const v = e.target.value;
+                if (v === '' || /^\d*\.?\d*$/.test(v)) setEditForm(f => ({ ...f, precioCobrado: v }));
+              }}
+              placeholder="0.00"
             />
           </div>
+          {monedaLocal && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Precio {monedaLocal}</Label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                className="h-8 text-xs"
+                value={editForm.precioLocal}
+                onChange={e => {
+                  const v = e.target.value;
+                  if (v === '' || /^\d*\.?\d*$/.test(v)) setEditForm(f => ({ ...f, precioLocal: v }));
+                }}
+                placeholder="Opcional"
+              />
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs">Fecha Inicio</Label>
             <Input
@@ -252,7 +279,7 @@ export default function SuscripcionCard({ sub, onRenovar, onCancelar, onDelete }
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            {panel?.nombre || 'Credencial directa'} · {monedaSymbol}{sub.precioCobrado.toLocaleString()}
+            {panel?.nombre || 'Credencial directa'} · {formatPrecioDisplay()}
           </p>
         </div>
         <div className="flex gap-1">

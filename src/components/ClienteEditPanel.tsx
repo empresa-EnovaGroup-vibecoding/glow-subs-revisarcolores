@@ -131,6 +131,7 @@ export default function ClienteEditPanel({ clienteId, nombre, whatsapp, pais, on
         items={pendingSubs}
         onAdd={handleAddPending}
         onRemove={handleRemovePending}
+        paisCliente={pais}
       />
 
       {pendingSubs.length > 0 && (

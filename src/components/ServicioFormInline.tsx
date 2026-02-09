@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
+import { PaisCliente } from '@/types';
 import { format, addDays } from 'date-fns';
 import { Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,41 +18,71 @@ export interface PendingSuscripcion {
   servicioId: string;
   panelId?: string;
   fechaInicio: string;
-  precioCobrado: number;
+  precioCobrado: number; // USD
+  precioLocal?: number;
+  monedaLocal?: 'MXN' | 'COP';
   credencialEmail?: string;
   credencialPassword?: string;
   notas?: string;
-  _tempId: string; // for keying in the list
+  _tempId: string;
+}
+
+function getMonedaForPais(pais?: PaisCliente | ''): 'MXN' | 'COP' | null {
+  if (pais === 'Mexico') return 'MXN';
+  if (pais === 'Colombia') return 'COP';
+  return null; // Venezuela/Ecuador pay in USD
 }
 
 interface Props {
   items: PendingSuscripcion[];
   onAdd: (item: PendingSuscripcion) => void;
   onRemove: (tempId: string) => void;
+  paisCliente?: PaisCliente | '';
 }
 
-export default function ServicioFormInline({ items, onAdd, onRemove }: Props) {
+export default function ServicioFormInline({ items, onAdd, onRemove, paisCliente }: Props) {
   const { servicios, paneles, getCuposDisponibles, getServicioById, getPanelById } = useData();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     servicioId: '',
     panelId: '',
     fechaInicio: format(new Date(), 'yyyy-MM-dd'),
-    precioCobrado: 0,
+    precioCobrado: '',
+    precioLocal: '',
     credencialEmail: '',
     credencialPassword: '',
   });
 
+  const monedaLocal = getMonedaForPais(paisCliente);
+
   const handleServicioChange = (servicioId: string) => {
     const servicio = getServicioById(servicioId);
-    setForm(f => ({ ...f, servicioId, precioCobrado: servicio?.precioBase ?? 0 }));
+    const precioUSD = servicio?.precioBase ?? 0;
+    let precioLocalVal = '';
+    if (monedaLocal === 'MXN' && servicio?.precioRefMXN) {
+      precioLocalVal = String(servicio.precioRefMXN);
+    } else if (monedaLocal === 'COP' && servicio?.precioRefCOP) {
+      precioLocalVal = String(servicio.precioRefCOP);
+    }
+    setForm(f => ({
+      ...f,
+      servicioId,
+      precioCobrado: precioUSD > 0 ? String(precioUSD) : '',
+      precioLocal: precioLocalVal,
+    }));
   };
 
   const handleAdd = () => {
     if (!form.servicioId) return;
+    const precioUSD = parseFloat(form.precioCobrado) || 0;
+    const precioLocalNum = parseFloat(form.precioLocal) || undefined;
     onAdd({
-      ...form,
+      servicioId: form.servicioId,
       panelId: form.panelId || undefined,
+      fechaInicio: form.fechaInicio,
+      precioCobrado: precioUSD,
+      precioLocal: precioLocalNum,
+      monedaLocal: monedaLocal && precioLocalNum ? monedaLocal : undefined,
       credencialEmail: form.credencialEmail || undefined,
       credencialPassword: form.credencialPassword || undefined,
       _tempId: Date.now().toString(36) + Math.random().toString(36).substr(2),
@@ -59,14 +90,22 @@ export default function ServicioFormInline({ items, onAdd, onRemove }: Props) {
     setForm({
       servicioId: '', panelId: '',
       fechaInicio: format(new Date(), 'yyyy-MM-dd'),
-      precioCobrado: 0, credencialEmail: '', credencialPassword: '',
+      precioCobrado: '', precioLocal: '',
+      credencialEmail: '', credencialPassword: '',
     });
     setShowForm(false);
   };
 
-  // Count pending items per panel to adjust available cupos
   const getPendingCupos = (panelId: string) => {
     return items.filter(i => i.panelId === panelId).length;
+  };
+
+  const formatPrecioDisplay = (item: PendingSuscripcion) => {
+    let display = `$${item.precioCobrado} USD`;
+    if (item.precioLocal && item.monedaLocal) {
+      display += ` (${item.precioLocal.toLocaleString()} ${item.monedaLocal})`;
+    }
+    return display;
   };
 
   return (
@@ -101,7 +140,7 @@ export default function ServicioFormInline({ items, onAdd, onRemove }: Props) {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{servicio?.nombre || '?'}</span>
                     <span className="text-xs text-muted-foreground">
-                      ${item.precioCobrado.toLocaleString()}
+                      {formatPrecioDisplay(item)}
                     </span>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
@@ -164,7 +203,7 @@ export default function ServicioFormInline({ items, onAdd, onRemove }: Props) {
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className={`grid gap-2 ${monedaLocal ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <div className="space-y-1.5">
               <Label className="text-xs">Fecha Inicio</Label>
               <Input
@@ -175,16 +214,35 @@ export default function ServicioFormInline({ items, onAdd, onRemove }: Props) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Precio Cobrado</Label>
+              <Label className="text-xs">Precio USD</Label>
               <Input
-                type="number"
-                min={0}
-                step={0.01}
+                type="text"
+                inputMode="decimal"
                 className="h-8 text-xs"
                 value={form.precioCobrado}
-                onChange={(e) => setForm(f => ({ ...f, precioCobrado: parseFloat(e.target.value) || 0 }))}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === '' || /^\d*\.?\d*$/.test(v)) setForm(f => ({ ...f, precioCobrado: v }));
+                }}
+                placeholder="0.00"
               />
             </div>
+            {monedaLocal && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Precio {monedaLocal}</Label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  className="h-8 text-xs"
+                  value={form.precioLocal}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || /^\d*\.?\d*$/.test(v)) setForm(f => ({ ...f, precioLocal: v }));
+                  }}
+                  placeholder="Opcional"
+                />
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
