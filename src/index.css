@@ -6,7 +6,58 @@
 
 @layer base {
   :root {
-    /* Dark mode as default */
+    /* Light mode */
+    --background: 210 20% 99%;
+    --foreground: 215 28% 17%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 28% 17%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 28% 17%;
+
+    --primary: 175 83% 32%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 174 60% 95%;
+    --secondary-foreground: 175 83% 32%;
+
+    --muted: 214 32% 91%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 226 100% 97%;
+    --accent-foreground: 215 28% 17%;
+
+    --destructive: 347 90% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
+
+    --violet: 263 90% 66%;
+    --violet-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 175 83% 32%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 240 28% 14%;
+    --sidebar-foreground: 214 32% 91%;
+    --sidebar-primary: 175 83% 32%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 20% 20%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 240 20% 22%;
+    --sidebar-ring: 175 83% 32%;
+    --sidebar-muted: 215 16% 55%;
+  }
+
+  .dark {
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
 
@@ -16,33 +67,27 @@
     --popover: 222 40% 14%;
     --popover-foreground: 210 40% 98%;
 
-    /* #0d9488 teal/turquesa */
     --primary: 175 83% 32%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 222 30% 18%;
     --secondary-foreground: 210 40% 98%;
 
-    /* #64748B */
     --muted: 222 25% 18%;
     --muted-foreground: 215 20% 65%;
 
     --accent: 222 25% 18%;
     --accent-foreground: 210 40% 98%;
 
-    /* #F43F5E rose */
-    --destructive: 347 90% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 347 80% 50%;
+    --destructive-foreground: 210 40% 98%;
 
-    /* #F59E0B amber */
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    /* #10B981 emerald */
     --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
 
-    /* #8B5CF6 violet */
     --violet: 263 90% 66%;
     --violet-foreground: 0 0% 100%;
 
@@ -50,9 +95,6 @@
     --input: 222 20% 20%;
     --ring: 175 83% 32%;
 
-    --radius: 0.75rem;
-
-    /* Sidebar */
     --sidebar-background: 222 47% 7%;
     --sidebar-foreground: 215 20% 85%;
     --sidebar-primary: 175 83% 32%;
