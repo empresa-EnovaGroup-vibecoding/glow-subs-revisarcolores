@@ -45,7 +45,7 @@ function ContentMiniPreview({ colors }: ContentMiniPreviewProps) {
 
   return (
     <div
-      className="w-[180px] h-[200px] rounded-2xl overflow-hidden shadow-lg border border-border/50 flex-shrink-0 transition-all duration-200"
+      className="w-full sm:w-[180px] h-[200px] rounded-2xl overflow-hidden shadow-lg border border-border/50 flex-shrink-0 transition-all duration-200"
       style={{ backgroundColor: colors.content_bg }}
     >
       {/* Header bar */}

@@ -122,7 +122,7 @@ export default function CortesHistorial({ selectedDate }: Props) {
                         ) : (
                           <div className="space-y-1.5">
                             {pagosDelCorte.map(p => (
-                              <div key={p.id} className="flex items-center justify-between text-xs">
+                              <div key={p.id} className="flex flex-wrap items-center justify-between text-xs">
                                 <div className="flex items-center gap-3">
                                   <span className="font-medium">{getClienteNombre(p.clienteId)}</span>
                                   <span className="text-muted-foreground">
