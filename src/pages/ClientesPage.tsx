@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { Cliente } from '@/types';
-import { format } from 'date-fns';
+import { Cliente, Suscripcion } from '@/types';
+import { format, differenceInDays, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Plus, Trash2, Edit2, Phone, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Edit2, Phone, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,72 +14,103 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import ClienteSuscripciones from '@/components/ClienteSuscripciones';
+import { Separator } from '@/components/ui/separator';
+import ServicioFormInline, { PendingSuscripcion } from '@/components/ServicioFormInline';
+import ClienteEditPanel from '@/components/ClienteEditPanel';
+
+// Color palette for service badges
+const BADGE_COLORS = [
+  'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
+  'bg-violet-500/15 text-violet-700 dark:text-violet-400',
+  'bg-sky-500/15 text-sky-700 dark:text-sky-400',
+  'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  'bg-rose-500/15 text-rose-700 dark:text-rose-400',
+  'bg-teal-500/15 text-teal-700 dark:text-teal-400',
+  'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400',
+  'bg-orange-500/15 text-orange-700 dark:text-orange-400',
+];
+
+function getServiceColor(servicioId: string, allIds: string[]): string {
+  const idx = allIds.indexOf(servicioId);
+  return BADGE_COLORS[idx % BADGE_COLORS.length];
+}
 
 export default function ClientesPage() {
-  const { clientes, addCliente, updateCliente, deleteCliente, getSuscripcionesByCliente, getPanelById, getServicioById } = useData();
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<Cliente | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const {
+    clientes, addClienteConSuscripciones, updateCliente, deleteCliente,
+    getSuscripcionesByCliente, servicios, getServicioById,
+  } = useData();
 
-  const [form, setForm] = useState({ nombre: '', whatsapp: '' });
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
 
-  const resetForm = () => {
-    setForm({ nombre: '', whatsapp: '' });
-    setEditing(null);
+  // New client form state
+  const [newForm, setNewForm] = useState({ nombre: '', whatsapp: '' });
+  const [pendingSubs, setPendingSubs] = useState<PendingSuscripcion[]>([]);
+
+  // Edit client form state
+  const [editForm, setEditForm] = useState({ nombre: '', whatsapp: '' });
+
+  // All service IDs for consistent color mapping
+  const allServiceIds = useMemo(() => servicios.map(s => s.id), [servicios]);
+
+  const resetCreate = () => {
+    setNewForm({ nombre: '', whatsapp: '' });
+    setPendingSubs([]);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editing) {
-      updateCliente({ ...editing, ...form });
-    } else {
-      addCliente(form);
-    }
-    setOpen(false);
-    resetForm();
+    if (!newForm.nombre || !newForm.whatsapp) return;
+    addClienteConSuscripciones(
+      { nombre: newForm.nombre, whatsapp: newForm.whatsapp },
+      pendingSubs.map(({ _tempId, ...rest }) => rest)
+    );
+    setCreateOpen(false);
+    resetCreate();
   };
 
-  const handleEdit = (cliente: Cliente) => {
-    setEditing(cliente);
-    setForm({ nombre: cliente.nombre, whatsapp: cliente.whatsapp });
-    setOpen(true);
+  const openEdit = (cliente: Cliente) => {
+    setEditingCliente(cliente);
+    setEditForm({ nombre: cliente.nombre, whatsapp: cliente.whatsapp });
   };
 
-  const getServiciosLabel = (clienteId: string): string => {
-    const subs = getSuscripcionesByCliente(clienteId);
-    if (subs.length === 0) return '—';
-    const activos = subs.filter(s => s.estado === 'activa');
-    if (activos.length === 0) return `${subs.length} vencido${subs.length > 1 ? 's' : ''}`;
-    return activos.map(s => getServicioById(s.servicioId)?.nombre || '?').join(' + ');
+  const handleSaveEdit = () => {
+    if (!editingCliente) return;
+    updateCliente({ ...editingCliente, ...editForm });
+    setEditingCliente(null);
   };
 
-  const getEstadoGlobal = (clienteId: string) => {
-    const subs = getSuscripcionesByCliente(clienteId);
+  // --- Status helpers ---
+  const getEstado = (subs: Suscripcion[]) => {
     if (subs.length === 0) return 'sin-servicio';
-    const hayVencido = subs.some(s => s.estado === 'vencida');
-    const hayCancelada = subs.every(s => s.estado === 'cancelada');
-    if (hayCancelada) return 'cancelado';
+    const hoy = startOfDay(new Date());
+    const activas = subs.filter(s => s.estado === 'activa');
+    if (activas.length === 0) return 'vencido';
+    const hayVencido = activas.some(s => differenceInDays(startOfDay(new Date(s.fechaVencimiento)), hoy) < 0);
     if (hayVencido) return 'vencido';
-    return 'activo';
+    const hayPorVencer = activas.some(s => {
+      const dias = differenceInDays(startOfDay(new Date(s.fechaVencimiento)), hoy);
+      return dias >= 0 && dias <= 5;
+    });
+    if (hayPorVencer) return 'por-vencer';
+    return 'al-dia';
   };
 
-  const estadoBadge = (estado: string) => {
-    switch (estado) {
-      case 'vencido': return 'alert-badge bg-destructive/10 text-destructive';
-      case 'cancelado': return 'alert-badge bg-muted text-muted-foreground';
-      case 'sin-servicio': return 'alert-badge bg-muted text-muted-foreground';
-      default: return 'alert-badge bg-success/10 text-success';
-    }
+  const getProximoVencimiento = (subs: Suscripcion[]): string | null => {
+    const activas = subs.filter(s => s.estado === 'activa');
+    if (activas.length === 0) return null;
+    const sorted = [...activas].sort(
+      (a, b) => new Date(a.fechaVencimiento).getTime() - new Date(b.fechaVencimiento).getTime()
+    );
+    return sorted[0].fechaVencimiento;
   };
 
-  const estadoLabel = (estado: string) => {
-    switch (estado) {
-      case 'vencido': return 'Vencido';
-      case 'cancelado': return 'Cancelado';
-      case 'sin-servicio': return 'Sin servicios';
-      default: return 'Activo';
-    }
+  const estadoConfig: Record<string, { label: string; className: string }> = {
+    'al-dia': { label: 'Al día', className: 'alert-badge bg-success/10 text-success' },
+    'por-vencer': { label: 'Por vencer', className: 'alert-badge bg-warning/10 text-warning' },
+    'vencido': { label: 'Vencido', className: 'alert-badge bg-destructive/10 text-destructive' },
+    'sin-servicio': { label: 'Sin servicios', className: 'alert-badge bg-muted text-muted-foreground' },
   };
 
   return (
@@ -89,52 +120,62 @@ export default function ClientesPage() {
           <h1 className="text-lg font-semibold">Clientes</h1>
           <p className="text-sm text-muted-foreground">{clientes.length} clientes registrados</p>
         </div>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
+
+        {/* === 1. NEW CLIENT DIALOG === */}
+        <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) resetCreate(); }}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-1.5">
               <Plus className="h-4 w-4" />
               Nuevo Cliente
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>{editing ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
+              <DialogTitle>Nuevo Cliente</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Nombre</Label>
-                <Input
-                  value={form.nombre}
-                  onChange={(e) => setForm(f => ({ ...f, nombre: e.target.value }))}
-                  placeholder="Nombre del cliente"
-                  required
-                />
+            <form onSubmit={handleCreate} className="space-y-5">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Nombre</Label>
+                  <Input
+                    value={newForm.nombre}
+                    onChange={(e) => setNewForm(f => ({ ...f, nombre: e.target.value }))}
+                    placeholder="Nombre del cliente"
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>WhatsApp</Label>
+                  <Input
+                    value={newForm.whatsapp}
+                    onChange={(e) => setNewForm(f => ({ ...f, whatsapp: e.target.value }))}
+                    placeholder="+57 300 123 4567"
+                    required
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>WhatsApp</Label>
-                <Input
-                  value={form.whatsapp}
-                  onChange={(e) => setForm(f => ({ ...f, whatsapp: e.target.value }))}
-                  placeholder="+57 300 123 4567"
-                  required
-                />
-              </div>
+
+              <Separator />
+
+              <ServicioFormInline
+                items={pendingSubs}
+                onAdd={(item) => setPendingSubs(prev => [...prev, item])}
+                onRemove={(tempId) => setPendingSubs(prev => prev.filter(i => i._tempId !== tempId))}
+              />
+
               <Button type="submit" className="w-full">
-                {editing ? 'Guardar Cambios' : 'Registrar Cliente'}
+                Registrar Cliente {pendingSubs.length > 0 && `con ${pendingSubs.length} servicio(s)`}
               </Button>
             </form>
-
-            {editing && (
-              <ClienteSuscripciones clienteId={editing.id} />
-            )}
           </DialogContent>
         </Dialog>
       </div>
 
+      {/* === 2. CLIENT TABLE === */}
       {clientes.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center">
           <div className="mb-3 rounded-full bg-muted p-3">
-            <Plus className="h-5 w-5 text-muted-foreground" />
+            <Users className="h-5 w-5 text-muted-foreground" />
           </div>
           <p className="text-sm font-medium">No hay clientes aún</p>
           <p className="mt-1 text-xs text-muted-foreground">Registra tu primer cliente</p>
@@ -148,96 +189,110 @@ export default function ClientesPage() {
                 <th className="table-header px-4 py-3 text-left">WhatsApp</th>
                 <th className="table-header px-4 py-3 text-left">Servicios</th>
                 <th className="table-header px-4 py-3 text-left">Estado</th>
+                <th className="table-header px-4 py-3 text-left">Vencimiento</th>
                 <th className="table-header px-4 py-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {clientes.map(cliente => {
-                const estado = getEstadoGlobal(cliente.id);
                 const subs = getSuscripcionesByCliente(cliente.id);
-                const isExpanded = expandedId === cliente.id;
+                const estado = getEstado(subs);
+                const estadoInfo = estadoConfig[estado];
+                const proximoVenc = getProximoVencimiento(subs);
+                const activeSubs = subs.filter(s => s.estado === 'activa');
+
                 return (
-                  <>
-                    <tr key={cliente.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-medium">{cliente.nombre}</td>
-                      <td className="px-4 py-3">
-                        <a
-                          href={`https://wa.me/${cliente.whatsapp.replace(/\D/g, '')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-primary hover:underline"
-                        >
-                          <Phone className="h-3 w-3" />
-                          {cliente.whatsapp}
-                        </a>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-muted-foreground">{getServiciosLabel(cliente.id)}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={estadoBadge(estado)}>{estadoLabel(estado)}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end gap-1">
-                          {subs.length > 0 && (
-                            <button
-                              onClick={() => setExpandedId(isExpanded ? null : cliente.id)}
-                              className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                            >
-                              {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                            </button>
-                          )}
-                          <button onClick={() => handleEdit(cliente)} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </button>
-                          <button onClick={() => deleteCliente(cliente.id)} className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                  <tr key={cliente.id} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3 font-medium">{cliente.nombre}</td>
+                    <td className="px-4 py-3">
+                      <a
+                        href={`https://wa.me/${cliente.whatsapp.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-primary hover:underline"
+                      >
+                        <Phone className="h-3 w-3" />
+                        {cliente.whatsapp}
+                      </a>
+                    </td>
+                    <td className="px-4 py-3">
+                      {activeSubs.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {activeSubs.map(sub => {
+                            const servicio = getServicioById(sub.servicioId);
+                            const colorClass = getServiceColor(sub.servicioId, allServiceIds);
+                            return (
+                              <span
+                                key={sub.id}
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${colorClass}`}
+                              >
+                                {servicio?.nombre || '?'}
+                              </span>
+                            );
+                          })}
                         </div>
-                      </td>
-                    </tr>
-                    {isExpanded && subs.length > 0 && (
-                      <tr key={`${cliente.id}-subs`} className="bg-muted/20">
-                        <td colSpan={5} className="px-6 py-3">
-                          <div className="space-y-2">
-                            {subs.map(sub => {
-                              const panel = getPanelById(sub.panelId);
-                              const servicio = getServicioById(sub.servicioId);
-                              return (
-                                <div key={sub.id} className="flex items-center justify-between rounded-md bg-card p-2.5 text-xs">
-                                  <div className="flex items-center gap-3">
-                                    <span className="font-medium">{servicio?.nombre || '?'}</span>
-                                    <span className="text-muted-foreground">Panel: {panel?.nombre || '—'}</span>
-                                    {sub.precioCobrado > 0 && (
-                                      <span className="text-muted-foreground">${sub.precioCobrado.toLocaleString()}</span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-muted-foreground">
-                                      {format(new Date(sub.fechaInicio), 'dd MMM', { locale: es })} → {format(new Date(sub.fechaVencimiento), 'dd MMM yyyy', { locale: es })}
-                                    </span>
-                                    <span className={
-                                      sub.estado === 'activa' ? 'alert-badge bg-success/10 text-success' :
-                                      sub.estado === 'vencida' ? 'alert-badge bg-destructive/10 text-destructive' :
-                                      'alert-badge bg-muted text-muted-foreground'
-                                    }>
-                                      {sub.estado === 'activa' ? 'Activa' : sub.estado === 'vencida' ? 'Vencida' : 'Cancelada'}
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={estadoInfo.className}>{estadoInfo.label}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {proximoVenc ? (
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(proximoVenc), 'dd MMM yyyy', { locale: es })}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-1">
+                        <button
+                          onClick={() => openEdit(cliente)}
+                          className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => deleteCliente(cliente.id)}
+                          className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
       )}
+
+      {/* === 3. EDIT CLIENT DIALOG === */}
+      <Dialog open={!!editingCliente} onOpenChange={(v) => { if (!v) setEditingCliente(null); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Cliente</DialogTitle>
+          </DialogHeader>
+          {editingCliente && (
+            <div className="space-y-4">
+              <ClienteEditPanel
+                clienteId={editingCliente.id}
+                nombre={editForm.nombre}
+                whatsapp={editForm.whatsapp}
+                onNombreChange={(v) => setEditForm(f => ({ ...f, nombre: v }))}
+                onWhatsappChange={(v) => setEditForm(f => ({ ...f, whatsapp: v }))}
+              />
+              <Button className="w-full" onClick={handleSaveEdit}>
+                Guardar Datos del Cliente
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

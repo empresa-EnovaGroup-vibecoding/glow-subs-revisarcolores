@@ -14,6 +14,7 @@ interface DataContextType {
   deletePanel: (id: string) => void;
   // Clientes
   addCliente: (cliente: Omit<Cliente, 'id'>) => void;
+  addClienteConSuscripciones: (cliente: Omit<Cliente, 'id'>, suscripciones: Omit<Suscripcion, 'id' | 'fechaVencimiento' | 'estado' | 'clienteId'>[]) => void;
   updateCliente: (cliente: Cliente) => void;
   deleteCliente: (id: string) => void;
   // Servicios (catálogo)
@@ -169,6 +170,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setClientes(prev => [...prev, { ...cliente, id: generateId() }]);
   }, []);
 
+  const addClienteConSuscripciones = useCallback((
+    cliente: Omit<Cliente, 'id'>,
+    subsData: Omit<Suscripcion, 'id' | 'fechaVencimiento' | 'estado' | 'clienteId'>[]
+  ) => {
+    const clienteId = generateId();
+    setClientes(prev => [...prev, { ...cliente, id: clienteId }]);
+    if (subsData.length > 0) {
+      const newSubs = subsData.map(s => ({
+        ...s,
+        id: generateId(),
+        clienteId,
+        estado: 'activa' as const,
+        fechaVencimiento: format(addDays(new Date(s.fechaInicio), 30), 'yyyy-MM-dd'),
+      }));
+      setSuscripciones(prev => [...prev, ...newSubs]);
+      setPaneles(prev => prev.map(p => {
+        const count = newSubs.filter(s => s.panelId === p.id).length;
+        return count > 0 ? { ...p, cuposUsados: p.cuposUsados + count } : p;
+      }));
+    }
+  }, []);
+
   const updateCliente = useCallback((cliente: Cliente) => {
     setClientes(prev => prev.map(c => c.id === cliente.id ? cliente : c));
   }, []);
@@ -270,7 +293,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     <DataContext.Provider value={{
       paneles, clientes, servicios, suscripciones, transacciones,
       addPanel, updatePanel, deletePanel,
-      addCliente, updateCliente, deleteCliente,
+      addCliente, addClienteConSuscripciones, updateCliente, deleteCliente,
       addServicio, updateServicio, deleteServicio, getServicioById,
       addSuscripcion, updateSuscripcion, deleteSuscripcion, getSuscripcionesByCliente,
       addTransaccion, deleteTransaccion,
