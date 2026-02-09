@@ -3,10 +3,11 @@ import { useData } from '@/contexts/DataContext';
 import {
   format, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
   isWithinInterval, addDays, subWeeks, addWeeks, subMonths, addMonths,
-  startOfDay,
+  startOfDay, eachWeekOfInterval,
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ClipboardCopy, FileText, ChevronLeft, ChevronRight, CalendarIcon } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -122,6 +123,33 @@ export default function ReporteSemanalDialog() {
       ? suscripciones.filter(s => s.estado === 'cancelada' && inPeriod(s.fechaInicio)).length
       : 0;
 
+    // --- Weekly breakdown for monthly chart ---
+    let weeklyBreakdown: { semana: string; ingresos: number; gastos: number; ganancia: number }[] = [];
+    if (mode === 'mensual') {
+      const weekStarts = eachWeekOfInterval(
+        { start: periodStart, end: periodEnd },
+        { weekStartsOn: 1 }
+      );
+      const gastoSemanal = paneles
+        .filter(p => p.estado === 'activo')
+        .reduce((sum, p) => sum + (p.costoMensual / 4), 0);
+
+      weeklyBreakdown = weekStarts.map((ws, idx) => {
+        const we = endOfWeek(ws, { weekStartsOn: 1 });
+        const clampedEnd = we > periodEnd ? periodEnd : we;
+        const ingresosSemana = pagos
+          .filter(p => isWithinInterval(new Date(p.fecha), { start: ws, end: clampedEnd }))
+          .reduce((sum, p) => sum + p.monto, 0);
+        const gastoRedondeado = Math.round(gastoSemanal * 100) / 100;
+        return {
+          semana: `Sem ${idx + 1}`,
+          ingresos: Math.round(ingresosSemana * 100) / 100,
+          gastos: gastoRedondeado,
+          ganancia: Math.round((ingresosSemana - gastoSemanal) * 100) / 100,
+        };
+      });
+    }
+
     return {
       nuevosClientes, renovaciones,
       pagosCount: pagosPeriodo.length,
@@ -134,6 +162,7 @@ export default function ReporteSemanalDialog() {
       totalGastosPeriodo: Math.round(totalGastosPeriodo * 100) / 100,
       clientesActivosTotal,
       cancelaciones,
+      weeklyBreakdown,
     };
   }, [clientes, suscripciones, pagos, paneles, getServicioById, periodStart, periodEnd, mode]);
 
@@ -331,6 +360,55 @@ export default function ReporteSemanalDialog() {
                   <p className="text-[10px] text-muted-foreground">Cancelaciones</p>
                   <p className="text-lg font-bold text-destructive">{r.cancelaciones}</p>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Monthly chart - Ingresos vs Gastos por semana */}
+          {mode === 'mensual' && r.weeklyBreakdown.length > 0 && (
+            <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+              <h4 className="text-xs font-semibold flex items-center gap-1.5">📊 Ingresos vs Gastos por semana</h4>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={r.weeklyBreakdown} barGap={4}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="semana" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                    <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" tickFormatter={v => `$${v}`} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        borderColor: 'hsl(var(--border))',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                      }}
+                      formatter={(value: number, name: string) => [
+                        `$${value}`,
+                        name === 'ingresos' ? 'Ingresos' : name === 'gastos' ? 'Gastos' : 'Ganancia',
+                      ]}
+                    />
+                    <Bar dataKey="ingresos" radius={[4, 4, 0, 0]} fill="hsl(var(--primary))" name="ingresos" />
+                    <Bar dataKey="gastos" radius={[4, 4, 0, 0]} fill="hsl(var(--destructive))" name="gastos" />
+                    <Bar dataKey="ganancia" radius={[4, 4, 0, 0]} name="ganancia">
+                      {r.weeklyBreakdown.map((entry, index) => (
+                        <Cell
+                          key={index}
+                          fill={entry.ganancia >= 0 ? 'hsl(142, 71%, 45%)' : 'hsl(var(--destructive))'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex justify-center gap-4 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2.5 w-2.5 rounded-sm bg-primary" /> Ingresos
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2.5 w-2.5 rounded-sm bg-destructive" /> Gastos
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: 'hsl(142, 71%, 45%)' }} /> Ganancia
+                </span>
               </div>
             </div>
           )}
