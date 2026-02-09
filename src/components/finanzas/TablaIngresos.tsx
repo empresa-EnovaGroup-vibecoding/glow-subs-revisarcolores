@@ -21,52 +21,70 @@ export default function TablaIngresos({ selectedDate }: Props) {
       );
       if (subsActivas.length === 0) return null;
 
-      const serviciosActivos = subsActivas.map(s => {
+      const serviciosDetalle = subsActivas.map(s => {
         const srv = servicios.find(sv => sv.id === s.servicioId);
-        return srv?.nombre || 'Sin servicio';
+        return {
+          nombre: srv?.nombre || 'Sin servicio',
+          precioUSD: s.precioCobrado,
+          precioLocal: s.precioLocal,
+          monedaLocal: s.monedaLocal,
+        };
       });
 
-      const totalCobrar = subsActivas.reduce((sum, s) => sum + s.precioCobrado, 0);
+      // CRITICAL: Always use precioCobrado (USD) for financial calculations
+      const totalCobrarUSD = subsActivas.reduce((sum, s) => sum + s.precioCobrado, 0);
 
       const pagosMes = pagos.filter(
         p => p.clienteId === cliente.id && isSameMonth(new Date(p.fecha), selectedDate)
       );
       const totalPagado = pagosMes.reduce((sum, p) => sum + p.monto, 0);
-      const pagado = totalPagado >= totalCobrar;
-      const saldo = totalCobrar - totalPagado;
+      const pagado = totalPagado >= totalCobrarUSD;
+      const saldo = totalCobrarUSD - totalPagado;
+
+      // Build local price summary
+      const precioLocalTotal = subsActivas.reduce((sum, s) => {
+        if (s.precioLocal && s.monedaLocal) return sum + s.precioLocal;
+        return sum;
+      }, 0);
+      const monedaLocalCliente = subsActivas.find(s => s.monedaLocal)?.monedaLocal;
 
       return {
         cliente,
-        serviciosActivos,
-        totalCobrar,
+        serviciosDetalle,
+        totalCobrarUSD,
+        precioLocalTotal: precioLocalTotal > 0 ? precioLocalTotal : null,
+        monedaLocalCliente: monedaLocalCliente || null,
         pagado,
         totalPagado,
         saldo: Math.max(0, saldo),
       };
     }).filter(Boolean) as {
       cliente: Cliente;
-      serviciosActivos: string[];
-      totalCobrar: number;
+      serviciosDetalle: { nombre: string; precioUSD: number; precioLocal?: number; monedaLocal?: string }[];
+      totalCobrarUSD: number;
+      precioLocalTotal: number | null;
+      monedaLocalCliente: string | null;
       pagado: boolean;
       totalPagado: number;
       saldo: number;
     }[];
   }, [clientes, suscripciones, pagos, servicios, selectedDate]);
 
-  const totalIngresos = data.reduce((sum, d) => sum + d.totalCobrar, 0);
+  const totalIngresosUSD = data.reduce((sum, d) => sum + d.totalCobrarUSD, 0);
 
   return (
     <div className="rounded-lg border border-border bg-card">
       <div className="p-4 pb-2">
         <h3 className="text-sm font-semibold">Ingresos — Lo que cobro a clientes</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">Se genera automáticamente desde Clientes y Suscripciones</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Se genera automáticamente desde Clientes y Suscripciones. Todos los cálculos en USD.</p>
       </div>
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="table-header">Cliente</TableHead>
-            <TableHead className="table-header">Servicios activos</TableHead>
-            <TableHead className="table-header text-right">Total a Cobrar</TableHead>
+            <TableHead className="table-header">Servicios</TableHead>
+            <TableHead className="table-header text-right">Precio USD</TableHead>
+            <TableHead className="table-header text-right">Precio Local</TableHead>
             <TableHead className="table-header text-center">Pagado</TableHead>
             <TableHead className="table-header text-right">Saldo Pendiente</TableHead>
           </TableRow>
@@ -74,7 +92,7 @@ export default function TablaIngresos({ selectedDate }: Props) {
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                 No hay clientes con suscripciones activas
               </TableCell>
             </TableRow>
@@ -84,14 +102,19 @@ export default function TablaIngresos({ selectedDate }: Props) {
                 <TableCell className="font-medium">{d.cliente.nombre}</TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
-                    {d.serviciosActivos.map((s, i) => (
+                    {d.serviciosDetalle.map((s, i) => (
                       <span key={i} className="alert-badge bg-primary/10 text-primary text-[10px]">
-                        {s}
+                        {s.nombre}
                       </span>
                     ))}
                   </div>
                 </TableCell>
-                <TableCell className="text-right font-medium">${d.totalCobrar.toLocaleString()}</TableCell>
+                <TableCell className="text-right font-medium">${d.totalCobrarUSD.toLocaleString()}</TableCell>
+                <TableCell className="text-right text-muted-foreground text-xs">
+                  {d.precioLocalTotal && d.monedaLocalCliente
+                    ? `${d.precioLocalTotal.toLocaleString()} ${d.monedaLocalCliente}`
+                    : '—'}
+                </TableCell>
                 <TableCell className="text-center">
                   {d.pagado ? (
                     <span className="inline-flex items-center gap-1 text-success text-xs font-medium">
@@ -115,8 +138,9 @@ export default function TablaIngresos({ selectedDate }: Props) {
             <TableRow>
               <TableCell colSpan={2} className="font-semibold">TOTAL</TableCell>
               <TableCell className="text-right font-bold text-success">
-                ${totalIngresos.toLocaleString()}
+                ${totalIngresosUSD.toLocaleString()}
               </TableCell>
+              <TableCell />
               <TableCell />
               <TableCell className="text-right font-bold text-destructive">
                 ${data.reduce((s, d) => s + d.saldo, 0).toLocaleString()}

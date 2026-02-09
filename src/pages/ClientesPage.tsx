@@ -179,6 +179,7 @@ export default function ClientesPage() {
                 items={pendingSubs}
                 onAdd={(item) => setPendingSubs(prev => [...prev, item])}
                 onRemove={(tempId) => setPendingSubs(prev => prev.filter(i => i._tempId !== tempId))}
+                paisCliente={newForm.pais}
               />
 
               <Button type="submit" className="w-full">
