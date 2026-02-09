@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Building2, Palette, Users, Database, Upload, Plus, Trash2, Save } from 'lucide-react';
 import { useConfiguracion } from '@/hooks/useConfiguracion';
-import { supabaseExternal } from '@/lib/supabaseExternal';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface TeamMember {
@@ -63,9 +63,9 @@ export default function ConfiguracionPage() {
     try {
       const ext = file.name.split('.').pop();
       const path = `logo-${Date.now()}.${ext}`;
-      const { error } = await supabaseExternal.storage.from('logos').upload(path, file, { upsert: true });
+      const { error } = await supabase.storage.from('logos').upload(path, file, { upsert: true });
       if (error) throw error;
-      const { data: urlData } = supabaseExternal.storage.from('logos').getPublicUrl(path);
+      const { data: urlData } = supabase.storage.from('logos').getPublicUrl(path);
       const url = urlData.publicUrl;
       setLogoUrl(url);
       await updateConfig('empresa_logo_url', url);
