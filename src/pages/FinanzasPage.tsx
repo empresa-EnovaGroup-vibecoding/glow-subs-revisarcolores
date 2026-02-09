@@ -10,6 +10,7 @@ import TablaIngresos from '@/components/finanzas/TablaIngresos';
 import TablaRentabilidad from '@/components/finanzas/TablaRentabilidad';
 import GananciaChart from '@/components/finanzas/GananciaChart';
 import PagosRecientes from '@/components/finanzas/PagosRecientes';
+import ResumenPorPais from '@/components/finanzas/ResumenPorPais';
 import RegistrarPagoDialog from '@/components/finanzas/RegistrarPagoDialog';
 
 export default function FinanzasPage() {
@@ -95,6 +96,9 @@ export default function FinanzasPage() {
 
       {/* Rentabilidad */}
       <TablaRentabilidad />
+
+      {/* Pagos por país */}
+      <ResumenPorPais selectedDate={selectedDate} />
 
       {/* Pagos recientes */}
       <PagosRecientes selectedDate={selectedDate} />
