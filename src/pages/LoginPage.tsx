@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Eye, EyeOff } from 'lucide-react';
+import logoNexus from '@/assets/logo-nexus.png';
 
 export default function LoginPage() {
   const { signIn, signUp } = useAuth();
@@ -37,7 +38,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <img src="/logo-ia-suite.png" alt="AI Subs logo" className="mx-auto mb-2 h-12 w-12 rounded-lg object-contain" />
+          <img src={logoNexus} alt="Nexus Digital logo" className="mx-auto mb-2 h-12 w-12 rounded-lg object-contain" />
           <CardTitle className="text-xl">Nexus</CardTitle>
           <CardDescription>
             {isSignUp ? 'Crea una cuenta para acceder' : 'Inicia sesión para continuar'}
