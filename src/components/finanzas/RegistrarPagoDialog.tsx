@@ -117,7 +117,7 @@ export default function RegistrarPagoDialog() {
           </div>
 
           {/* Moneda + Monto */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Moneda</Label>
               <Select value={form.moneda} onValueChange={v => setForm(f => ({ ...f, moneda: v as MonedaPago, tasaCambio: v === 'USD' ? '' : f.tasaCambio }))}>
@@ -170,7 +170,7 @@ export default function RegistrarPagoDialog() {
           )}
 
           {/* Método + Fecha */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Método</Label>
               <Select value={form.metodo} onValueChange={v => setForm(f => ({ ...f, metodo: v as MetodoPago }))}>

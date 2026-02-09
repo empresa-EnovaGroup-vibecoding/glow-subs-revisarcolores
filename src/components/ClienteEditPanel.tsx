@@ -79,7 +79,7 @@ export default function ClienteEditPanel({ clienteId, nombre, whatsapp, pais, on
   return (
     <div className="space-y-5">
       {/* Client data */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="space-y-1.5">
           <Label className="text-xs">Nombre</Label>
           <Input value={nombre} onChange={e => onNombreChange(e.target.value)} className="h-9" />
