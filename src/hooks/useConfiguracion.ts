@@ -31,7 +31,7 @@ export function useConfiguracion() {
 
   const fetchConfig = useCallback(async () => {
     const { data } = await supabaseExternal.from('configuracion').select('clave, valor');
-    if (data) {
+    if (data && data.length > 0) {
       const map = { ...DEFAULTS };
       data.forEach((row: any) => {
         if (row.clave in map) {
@@ -39,6 +39,14 @@ export function useConfiguracion() {
         }
       });
       setConfig(map);
+    } else {
+      // Seed defaults if table is empty
+      const rows = Object.entries(DEFAULTS).map(([clave, valor]) => ({
+        clave,
+        valor: valor === null ? null : String(valor),
+      }));
+      await supabaseExternal.from('configuracion').upsert(rows, { onConflict: 'clave' });
+      setConfig(DEFAULTS);
     }
     setLoading(false);
   }, []);
@@ -47,7 +55,10 @@ export function useConfiguracion() {
 
   const updateConfig = useCallback(async (clave: keyof ConfigMap, valor: string | null) => {
     setConfig(prev => ({ ...prev, [clave]: valor }));
-    await supabaseExternal.from('configuracion').update({ valor }).eq('clave', clave);
+    await supabaseExternal.from('configuracion').upsert(
+      { clave, valor },
+      { onConflict: 'clave' }
+    );
   }, []);
 
   return { config, loading, updateConfig, refetch: fetchConfig };
