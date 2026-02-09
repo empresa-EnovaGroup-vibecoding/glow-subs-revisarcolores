@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Monitor, Users, DollarSign, Menu, Package, CalendarDays, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Monitor, Users, DollarSign, Menu, Package, CalendarDays, Settings, LogOut, Sun, Moon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageView } from '@/types';
 import { cn } from '@/lib/utils';
@@ -24,8 +24,17 @@ const navItems: { id: PageView; label: string; icon: React.ElementType }[] = [
 
 export default function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    return saved ? saved === 'dark' : true; // dark by default
+  });
   const { config, loading } = useConfiguracion();
   const { signOut } = useAuth();
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
 
   useEffect(() => {
     if (!loading) applySidebarTheme(config);
@@ -107,7 +116,27 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
           })}
         </nav>
 
-        <div className="p-4 space-y-3" style={{ borderTop: `1px solid var(--sidebar-border, #2d3348)` }}>
+        <div className="p-4 space-y-2" style={{ borderTop: `1px solid var(--sidebar-border, #2d3348)` }}>
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-200"
+            style={{ color: 'var(--sidebar-text, #94a3b8)' }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--sidebar-hover-bg, #232839)';
+              (e.currentTarget as HTMLElement).style.color = 'var(--sidebar-active-text, #fff)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+              (e.currentTarget as HTMLElement).style.color = 'var(--sidebar-text, #94a3b8)';
+            }}
+          >
+            {darkMode ? (
+              <Sun className="h-[18px] w-[18px]" style={{ color: 'var(--sidebar-icon-color, #64748b)' }} />
+            ) : (
+              <Moon className="h-[18px] w-[18px]" style={{ color: 'var(--sidebar-icon-color, #64748b)' }} />
+            )}
+            {darkMode ? 'Modo claro' : 'Modo oscuro'}
+          </button>
           <button
             onClick={signOut}
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-200"
