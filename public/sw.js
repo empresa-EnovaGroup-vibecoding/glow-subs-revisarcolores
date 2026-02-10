@@ -1,4 +1,6 @@
-const CACHE_NAME = 'nexus-v2';
+// CACHE_NAME: Cambiar la version fuerza a TODOS los usuarios a descargar
+// los archivos nuevos. Si en el futuro haces otro cambio grande, cambia a v4, v5, etc.
+const CACHE_NAME = 'nexus-v3';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -7,13 +9,17 @@ const STATIC_ASSETS = [
   '/favicon.ico',
 ];
 
+// "install" = cuando la app se descarga por primera vez (o se actualiza)
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
   );
+  // skipWaiting = no esperar, activar inmediatamente la version nueva
   self.skipWaiting();
 });
 
+// "activate" = cuando la version nueva toma control
+// Borra TODAS las caches viejas (v2, v1, etc.)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -26,34 +32,24 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request;
 
-  // No interceptar llamadas API
+  // No interceptar llamadas a Supabase (API, auth, storage)
   if (request.method !== 'GET' || request.url.includes('/rest/') || request.url.includes('/auth/') || request.url.includes('/functions/')) {
     event.respondWith(fetch(request));
     return;
   }
 
-  // Network-first para navegación (HTML) - siempre cargar lo más reciente
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then(response => {
-          const clone = response.clone();
-          caches.open('nexus-v2').then(cache => cache.put(request, clone));
-          return response;
-        })
-        .catch(() => caches.match(request))
-    );
-    return;
-  }
-
-  // Cache-first solo para assets estáticos (imágenes, fonts, JS, CSS)
+  // NETWORK-FIRST para TODO (HTML, CSS, JS)
+  // Siempre intenta bajar la version nueva del servidor.
+  // Solo si no hay internet, usa la version guardada en cache.
+  // Antes era "cache-first" para CSS/JS, lo que causaba que la app
+  // descargada usara archivos viejos y no se actualizara.
   event.respondWith(
-    caches.match(request).then(cached =>
-      cached || fetch(request).then(response => {
+    fetch(request)
+      .then(response => {
         const clone = response.clone();
-        caches.open('nexus-v2').then(cache => cache.put(request, clone));
+        caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
         return response;
       })
-    )
+      .catch(() => caches.match(request))
   );
 });

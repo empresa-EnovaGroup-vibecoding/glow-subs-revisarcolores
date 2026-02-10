@@ -77,7 +77,30 @@ export function useContentTheme() {
   const [isCustom, setIsCustom] = useState(() => isContentCustomized());
   const [colors, setColors] = useState<ContentColors>(() => loadColorsForMode(isDarkMode()));
 
-  // ALWAYS apply content colors — never clear them
+  // FIX: Escuchar cuando cambia la clase 'dark' en <html>
+  // MutationObserver vigila el HTML y cuando detecta que alguien
+  // agrego o quito la clase "dark", recarga los colores correctos.
+  // Sin esto, el hook se queda con los colores viejos y pinta encima.
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const dark = isDarkMode();
+      const custom = isContentCustomized();
+      const newColors = custom
+        ? loadColorsForMode(dark)
+        : (dark ? { ...CONTENT_DEFAULTS_DARK } : { ...CONTENT_DEFAULTS });
+      setColors(newColors);
+      setIsCustom(custom);
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  // Aplicar colores cada vez que cambian
   useEffect(() => {
     applyAllContentColors(colors);
     const dark = isDarkMode();

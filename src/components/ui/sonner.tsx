@@ -1,10 +1,29 @@
-import { useTheme } from "next-themes";
+import { useState, useEffect } from "react";
 import { Toaster as Sonner, toast } from "sonner";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
+// Antes usaba "next-themes" que no tenia Provider configurado,
+// asi que siempre devolvia "system". Ahora leemos el tema real
+// directamente del <html> class="dark".
+function useCurrentTheme(): "dark" | "light" {
+  const [theme, setTheme] = useState<"dark" | "light">(() =>
+    document.documentElement.classList.contains("dark") ? "dark" : "light"
+  );
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  return theme;
+}
+
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme();
+  const theme = useCurrentTheme();
 
   return (
     <Sonner

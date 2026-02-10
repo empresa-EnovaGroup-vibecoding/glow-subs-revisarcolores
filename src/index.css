@@ -57,7 +57,7 @@
     --sidebar-muted: 215 16% 55%;
 
     /* Content theme defaults - light */
-    --content-bg: #ffffff;
+    --content-bg: #f8fafc; /* synced with useContentTheme.ts */
     --content-card-bg: #ffffff;
     --content-hover-bg: #f1f5f9;
     --content-text: #1e293b;
