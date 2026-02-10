@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { MetodoPago, MonedaPago, PaisCliente } from '@/types';
 import { format } from 'date-fns';
-import { Plus } from 'lucide-react';
+import { Plus, Upload, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { supabaseExternal } from '@/lib/supabaseExternal';
 
 const METODOS: MetodoPago[] = [
   'Binance Pay', 'Binance P2P', 'Transferencia bancaria',
@@ -20,9 +21,9 @@ const METODOS: MetodoPago[] = [
 ];
 
 const MONEDAS: { value: MonedaPago; label: string }[] = [
-  { value: 'USD', label: 'USD — Dólar' },
-  { value: 'MXN', label: 'MXN — Peso Mexicano' },
-  { value: 'COP', label: 'COP — Peso Colombiano' },
+  { value: 'USD', label: 'USD - Dolar' },
+  { value: 'MXN', label: 'MXN - Peso Mexicano' },
+  { value: 'COP', label: 'COP - Peso Colombiano' },
 ];
 
 const PAIS_MONEDA: Record<PaisCliente, MonedaPago> = {
@@ -32,9 +33,45 @@ const PAIS_MONEDA: Record<PaisCliente, MonedaPago> = {
   Mexico: 'MXN',
 };
 
+function mapMoneda(moneda: string | null): MonedaPago {
+  if (!moneda) return 'USD';
+  const upper = moneda.toUpperCase();
+  if (upper === 'MXN') return 'MXN';
+  if (upper === 'COP') return 'COP';
+  return 'USD';
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+interface ExtractedData {
+  monto: number | null;
+  moneda: string | null;
+  fecha: string | null;
+  metodo: string | null;
+  referencia: string | null;
+  remitente: string | null;
+}
+
 export default function RegistrarPagoDialog() {
   const { clientes, addPago } = useData();
   const [open, setOpen] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [aiData, setAiData] = useState<ExtractedData | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [form, setForm] = useState({
     clienteId: '',
     monto: '',
@@ -44,7 +81,6 @@ export default function RegistrarPagoDialog() {
     tasaCambio: '',
   });
 
-  // Pre-select currency based on client's country
   useEffect(() => {
     if (form.clienteId) {
       const cliente = clientes.find(c => c.id === form.clienteId);
@@ -62,12 +98,104 @@ export default function RegistrarPagoDialog() {
     ? Math.round((montoOriginal / tasaCambio) * 100) / 100
     : montoOriginal;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreview(previewUrl);
+    setImageFile(file);
+
+    setAnalyzing(true);
+    try {
+      const base64 = await fileToBase64(file);
+      const session = await supabaseExternal.auth.getSession();
+      const token = session.data.session?.access_token;
+
+      const response = await fetch(
+        'https://vunhyixxpeqdevoruaqe.supabase.co/functions/v1/extract-receipt',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token,
+          },
+          body: JSON.stringify({
+            imageBase64: base64,
+            mimeType: file.type || 'image/jpeg',
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        const d = result.data as ExtractedData;
+        setAiData(d);
+
+        setForm(f => ({
+          ...f,
+          monto: d.monto != null ? String(d.monto) : f.monto,
+          moneda: d.moneda ? mapMoneda(d.moneda) : f.moneda,
+          metodo: (d.metodo || f.metodo) as MetodoPago | '',
+          fecha: d.fecha || f.fecha,
+        }));
+
+        if (d.remitente) {
+          const name = String(d.remitente).toLowerCase();
+          const match = clientes.find(c =>
+            c.nombre.toLowerCase().includes(name) ||
+            name.includes(c.nombre.toLowerCase())
+          );
+          if (match) {
+            setForm(f => ({ ...f, clienteId: match.id }));
+          }
+        }
+
+        toast.success('Comprobante analizado. Revisa los datos.');
+      } else {
+        toast.error('No se pudo analizar el comprobante');
+      }
+    } catch (err) {
+      console.error('Error analyzing receipt:', err);
+      toast.error('Error al analizar la imagen');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const clearImage = () => {
+    setImagePreview(null);
+    setImageFile(null);
+    setAiData(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.clienteId || !form.metodo || !form.monto) return;
     if (needsRate && tasaCambio <= 0) {
       toast.error('Ingresa la tasa de cambio');
       return;
+    }
+
+    let comprobanteUrl: string | undefined;
+    if (imageFile) {
+      const ext = imageFile.name.split('.').pop() || 'jpg';
+      const path = 'comprobante-' + Date.now() + '.' + ext;
+      const { error: uploadError } = await supabaseExternal.storage
+        .from('comprobantes')
+        .upload(path, imageFile, { upsert: true });
+
+      if (uploadError) {
+        toast.error('Error al subir comprobante');
+        console.error(uploadError);
+      } else {
+        const { data: urlData } = supabaseExternal.storage
+          .from('comprobantes')
+          .getPublicUrl(path);
+        comprobanteUrl = urlData.publicUrl;
+      }
     }
 
     addPago({
@@ -78,29 +206,97 @@ export default function RegistrarPagoDialog() {
       tasaCambio: needsRate ? tasaCambio : undefined,
       metodo: form.metodo as MetodoPago,
       fecha: form.fecha,
+      comprobanteUrl,
+      datosExtraidos: aiData ?? undefined,
     });
 
-    toast.success(`Pago registrado: $${montoUSD.toFixed(2)} USD`);
+    toast.success('Pago registrado: $' + montoUSD.toFixed(2) + ' USD');
     setOpen(false);
+    resetForm();
+  };
+
+  const resetForm = () => {
     setForm({
-      clienteId: '', monto: '', metodo: '', moneda: 'USD', tasaCambio: '',
+      clienteId: '', monto: '', metodo: '' as MetodoPago | '', moneda: 'USD', tasaCambio: '',
       fecha: format(new Date(), 'yyyy-MM-dd'),
     });
+    clearImage();
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
       <DialogTrigger asChild>
         <Button size="sm" className="gap-1.5">
           <Plus className="h-4 w-4" />
           Registrar Pago
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Registrar Pago de Cliente</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Upload comprobante */}
+          <div className="space-y-2">
+            <Label>Comprobante de pago (opcional)</Label>
+            {!imagePreview ? (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border p-4 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              >
+                {analyzing ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Analizando comprobante...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-5 w-5" />
+                    Subir foto del comprobante
+                  </>
+                )}
+              </button>
+            ) : (
+              <div className="relative rounded-xl overflow-hidden border border-border">
+                <img
+                  src={imagePreview}
+                  alt="Comprobante"
+                  className="w-full max-h-40 object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={clearImage}
+                  className="absolute top-2 right-2 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                {analyzing && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                    <div className="flex items-center gap-2 rounded-lg bg-black/70 px-4 py-2 text-sm text-white">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Analizando...
+                    </div>
+                  </div>
+                )}
+                {aiData && !analyzing && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-emerald-600/90 px-3 py-1.5 text-xs font-medium text-white">
+                    Datos extraidos automaticamente
+                  </div>
+                )}
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+          </div>
+
           {/* Cliente */}
           <div className="space-y-2">
             <Label>Cliente</Label>
@@ -109,11 +305,16 @@ export default function RegistrarPagoDialog() {
               <SelectContent>
                 {clientes.map(c => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.nombre} {c.pais ? `(${c.pais})` : ''}
+                    {c.nombre} {c.pais ? '(' + c.pais + ')' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {aiData && aiData.remitente && (
+              <p className="text-xs text-muted-foreground">
+                IA detecto: <span className="font-medium text-foreground">{String(aiData.remitente)}</span>
+              </p>
+            )}
           </div>
 
           {/* Moneda + Monto */}
@@ -137,7 +338,7 @@ export default function RegistrarPagoDialog() {
                 step="0.01"
                 value={form.monto}
                 onChange={e => setForm(f => ({ ...f, monto: e.target.value }))}
-                placeholder={`Ej: ${form.moneda === 'MXN' ? '82' : form.moneda === 'COP' ? '16000' : '4'}`}
+                placeholder={'Ej: ' + (form.moneda === 'MXN' ? '82' : form.moneda === 'COP' ? '16000' : '4')}
                 required
               />
             </div>
@@ -159,7 +360,7 @@ export default function RegistrarPagoDialog() {
               {montoOriginal > 0 && tasaCambio > 0 && (
                 <div className="rounded-md bg-muted/50 p-2.5 text-sm">
                   <span className="text-muted-foreground">
-                    {montoOriginal.toLocaleString()} {form.moneda} / {tasaCambio} = {' '}
+                    {montoOriginal.toLocaleString()} {form.moneda} / {tasaCambio} ={' '}
                   </span>
                   <span className="font-semibold text-success">
                     ${montoUSD.toFixed(2)} USD
@@ -169,12 +370,12 @@ export default function RegistrarPagoDialog() {
             </div>
           )}
 
-          {/* Método + Fecha */}
+          {/* Metodo + Fecha */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Método</Label>
+              <Label>Metodo</Label>
               <Select value={form.metodo} onValueChange={v => setForm(f => ({ ...f, metodo: v as MetodoPago }))}>
-                <SelectTrigger><SelectValue placeholder="Método..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Metodo..." /></SelectTrigger>
                 <SelectContent>
                   {METODOS.map(m => (
                     <SelectItem key={m} value={m}>{m}</SelectItem>
@@ -188,12 +389,23 @@ export default function RegistrarPagoDialog() {
             </div>
           </div>
 
+          {/* AI reference info */}
+          {aiData && aiData.referencia && (
+            <div className="rounded-md bg-muted/50 p-2.5 text-xs text-muted-foreground">
+              Referencia detectada: <span className="font-medium text-foreground">{String(aiData.referencia)}</span>
+            </div>
+          )}
+
           <Button
             type="submit"
             className="w-full"
-            disabled={!form.clienteId || !form.metodo || !form.monto || (needsRate && tasaCambio <= 0)}
+            disabled={!form.clienteId || !form.metodo || !form.monto || (needsRate && tasaCambio <= 0) || analyzing}
           >
-            Registrar Pago {montoUSD > 0 && `— $${montoUSD.toFixed(2)} USD`}
+            {analyzing ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analizando...</>
+            ) : (
+              <>Registrar Pago {montoUSD > 0 ? '- $' + montoUSD.toFixed(2) + ' USD' : ''}</>
+            )}
           </Button>
         </form>
       </DialogContent>
