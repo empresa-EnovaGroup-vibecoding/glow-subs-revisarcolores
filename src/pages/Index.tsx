@@ -14,12 +14,18 @@ import LoginPage from '@/pages/LoginPage';
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<PageView>('dashboard');
+  const [pendingSearch, setPendingSearch] = useState('');
+
+  const navigateWithSearch = (page: PageView, search: string) => {
+    setPendingSearch(search);
+    setCurrentPage(page);
+  };
 
   const renderPage = () => {
     switch (currentPage) {
-      case 'dashboard': return <Dashboard />;
+      case 'dashboard': return <Dashboard onNavigateToPanel={(search) => navigateWithSearch('paneles', search)} />;
       case 'calendario': return <CalendarioPage />;
-      case 'paneles': return <PanelesPage />;
+      case 'paneles': return <PanelesPage initialSearch={pendingSearch} onSearchConsumed={() => setPendingSearch('')} />;
       case 'clientes': return <ClientesPage />;
       case 'finanzas': return <FinanzasPage />;
       case 'servicios': return <ServiciosPage />;

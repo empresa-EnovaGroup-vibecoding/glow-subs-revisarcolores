@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Panel, Cliente, Suscripcion } from '@/types';
 import { Plus, Search } from 'lucide-react';
@@ -16,13 +16,28 @@ export interface ClienteEnPanel {
   suscripcion: Suscripcion;
 }
 
-export default function PanelesPage() {
+interface PanelesPageProps {
+  initialSearch?: string;
+  onSearchConsumed?: () => void;
+}
+
+export default function PanelesPage({ initialSearch = '', onSearchConsumed }: PanelesPageProps) {
   const { paneles, clientes, suscripciones, updatePanel } = useData();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Panel | null>(null);
   const [filterServicio, setFilterServicio] = useState('Todos');
   const [search, setSearch] = useState('');
   const [filterResumen, setFilterResumen] = useState('');
+
+  // Apply initial search from Dashboard navigation
+  useEffect(() => {
+    if (initialSearch) {
+      setSearch(initialSearch);
+      setFilterServicio('Todos');
+      setFilterResumen('');
+      onSearchConsumed?.();
+    }
+  }, [initialSearch, onSearchConsumed]);
 
   // Map: panelId -> clients assigned to it
   const clientesPorPanel = useMemo(() => {

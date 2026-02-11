@@ -4,7 +4,7 @@ import { format, isToday, isBefore, addDays, isAfter, startOfDay, differenceInDa
 import { es } from 'date-fns/locale';
 import {
   AlertTriangle, Clock, Users, Monitor, TrendingUp,
-  CalendarClock, MessageCircle, RefreshCw, ChevronDown, ChevronUp, CheckCircle2,
+  CalendarClock, MessageCircle, RefreshCw, ChevronDown, ChevronUp, CheckCircle2, ExternalLink,
 } from 'lucide-react';
 import { getWhatsAppNotificationUrl } from '@/lib/whatsapp';
 import { Suscripcion } from '@/types';
@@ -12,7 +12,11 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import InstallBanner from '@/components/InstallBanner';
 
-export default function Dashboard() {
+interface DashboardProps {
+  onNavigateToPanel?: (search: string) => void;
+}
+
+export default function Dashboard({ onNavigateToPanel }: DashboardProps) {
   const {
     clientes, paneles, suscripciones, pagos, cortes,
     getPanelById, getServicioById, updateSuscripcion,
@@ -81,7 +85,7 @@ export default function Dashboard() {
     return paneles.filter(p => {
       if (!p.fechaExpiracion) return false;
       const diff = differenceInDays(parseISO(p.fechaExpiracion), hoy);
-      return diff <= 15; // includes expired (negative) and expiring soon
+      return diff <= 15;
     }).sort((a, b) => {
       const diffA = differenceInDays(parseISO(a.fechaExpiracion), new Date());
       const diffB = differenceInDays(parseISO(b.fechaExpiracion), new Date());
@@ -109,6 +113,7 @@ export default function Dashboard() {
 
     const fechaVenc = new Date(sub.fechaVencimiento);
     const diasDiff = differenceInDays(fechaVenc, today);
+    const panel = sub.panelId ? getPanelById(sub.panelId) : null;
 
     let statusLabel: string;
     let statusClass: string;
@@ -128,7 +133,17 @@ export default function Dashboard() {
     return (
       <div className="flex items-center justify-between rounded-md bg-card border border-border/50 p-3 text-sm gap-2">
         <div className="flex-1 min-w-0">
-          <p className="font-medium truncate">{cliente.nombre}</p>
+          {panel && onNavigateToPanel ? (
+            <button
+              onClick={() => onNavigateToPanel(panel.nombre)}
+              className="font-medium truncate hover:text-primary hover:underline text-left block max-w-full"
+              title={'Ver panel: ' + panel.nombre}
+            >
+              {cliente.nombre}
+            </button>
+          ) : (
+            <p className="font-medium truncate">{cliente.nombre}</p>
+          )}
           <p className="text-xs text-muted-foreground truncate">{servicio?.nombre || 'Sin servicio'}</p>
         </div>
         <span className={'text-xs whitespace-nowrap ' + statusClass}>
@@ -221,8 +236,19 @@ export default function Dashboard() {
                 const dias = differenceInDays(parseISO(p.fechaExpiracion), new Date());
                 const vencido = dias < 0;
                 return (
-                  <div key={p.id} className="flex items-center justify-between text-sm py-1.5 px-2 rounded bg-card/50">
-                    <span className="font-medium truncate">{p.nombre}</span>
+                  <div key={p.id} className="flex items-center justify-between text-sm py-1.5 px-2 rounded bg-card/50 group">
+                    {onNavigateToPanel ? (
+                      <button
+                        onClick={() => onNavigateToPanel(p.nombre)}
+                        className="font-medium truncate hover:text-primary hover:underline text-left flex items-center gap-1.5"
+                        title="Ver panel completo"
+                      >
+                        {p.nombre}
+                        <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 text-primary shrink-0" />
+                      </button>
+                    ) : (
+                      <span className="font-medium truncate">{p.nombre}</span>
+                    )}
                     <div className="flex items-center gap-3 shrink-0">
                       <span className="text-[11px] text-muted-foreground">{p.servicioAsociado}</span>
                       <span className={'text-xs font-medium ' + (vencido ? 'text-destructive' : dias <= 3 ? 'text-destructive' : 'text-warning')}>
