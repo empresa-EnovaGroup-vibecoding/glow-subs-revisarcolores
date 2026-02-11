@@ -66,25 +66,25 @@
   }
 
   .dark {
-    --background: 0 0% 10%;
+    --background: 0 0% 9%;
     --foreground: 210 40% 98%;
 
-    --card: 0 0% 12%;
+    --card: 0 0% 13%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 12%;
+    --popover: 0 0% 13%;
     --popover-foreground: 210 40% 98%;
 
     --primary: 175 83% 32%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 15%;
+    --secondary: 0 0% 17%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 0 0% 17%;
+    --muted-foreground: 215 20% 72%;
 
-    --accent: 0 0% 15%;
+    --accent: 0 0% 17%;
     --accent-foreground: 210 40% 98%;
 
     --destructive: 347 80% 50%;
@@ -99,26 +99,26 @@
     --violet: 263 90% 66%;
     --violet-foreground: 0 0% 100%;
 
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
+    --border: 0 0% 22%;
+    --input: 0 0% 22%;
     --ring: 175 83% 32%;
 
-    --sidebar-background: 0 0% 10%;
+    --sidebar-background: 0 0% 8%;
     --sidebar-foreground: 215 20% 85%;
     --sidebar-primary: 175 83% 32%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 14%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 0 0% 18%;
+    --sidebar-border: 0 0% 20%;
     --sidebar-ring: 175 83% 32%;
-    --sidebar-muted: 215 15% 50%;
+    --sidebar-muted: 215 15% 55%;
 
     /* Content theme defaults - dark */
-    --content-bg: #19191a;
-    --content-card-bg: #1e1e20;
-    --content-hover-bg: #252527;
+    --content-bg: #171718;
+    --content-card-bg: #212123;
+    --content-hover-bg: #2a2a2d;
     --content-text: #e2e8f0;
-    --content-text-secondary: #94a3b8;
+    --content-text-secondary: #a1afc0;
     --content-text-heading: #f8fafc;
   }
 }
@@ -139,6 +139,7 @@
     @apply rounded-2xl p-6 transition-all duration-200 hover:-translate-y-0.5;
     background-color: var(--content-card-bg, hsl(var(--card)));
     color: var(--content-text, inherit);
+    border: 1px solid hsl(var(--border));
     box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
   }
 
@@ -150,11 +151,23 @@
     @apply rounded-2xl p-6 transition-all duration-200 hover:-translate-y-0.5;
     background-color: var(--content-card-bg, hsl(var(--card)));
     color: var(--content-text, inherit);
+    border: 1px solid hsl(var(--border));
     box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
   }
 
   .stat-card:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.06);
+  }
+
+  /* Dark mode: stronger shadows and glow for depth */
+  .dark .glass-card,
+  .dark .stat-card {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 1px 3px rgba(0,0,0,0.2);
+  }
+
+  .dark .glass-card:hover,
+  .dark .stat-card:hover {
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.3);
   }
 
   .alert-badge {

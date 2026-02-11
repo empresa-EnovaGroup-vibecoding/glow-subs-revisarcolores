@@ -85,13 +85,13 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
           )}
           <div>
             <h1 className="text-[15px] font-bold" style={{ color: 'var(--sidebar-active-text, #fff)' }}>{config.empresa_nombre}</h1>
-            <p className="text-[11px]" style={{ color: 'var(--sidebar-text, #94a3b8)', opacity: 0.5 }}>{config.empresa_subtitulo}</p>
+            <p className="text-[11px]" style={{ color: 'var(--sidebar-text, #a1afc0)', opacity: 0.7 }}>{config.empresa_subtitulo}</p>
           </div>
         </div>
 
         {/* Nav */}
         <nav className="flex-1 space-y-1 px-3 pt-4">
-          <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--sidebar-text, #94a3b8)', opacity: 0.4 }}>
+          <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: 'var(--sidebar-text, #a1afc0)', opacity: 0.6 }}>
             Menú
           </p>
           {navItems.map((item) => {
@@ -167,7 +167,7 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
             <LogOut className="h-[18px] w-[18px]" style={{ color: 'var(--sidebar-icon-color, #64748b)' }} />
             Cerrar sesión
           </button>
-          <p className="text-[11px]" style={{ color: 'var(--sidebar-text, #94a3b8)', opacity: 0.4 }}>v1.0 · Gestión Interna</p>
+          <p className="text-[11px]" style={{ color: 'var(--sidebar-text, #a1afc0)', opacity: 0.5 }}>v1.0 · Gestión Interna</p>
         </div>
       </aside>
 

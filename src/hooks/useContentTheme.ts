@@ -19,11 +19,11 @@ export const CONTENT_DEFAULTS: ContentColors = {
 };
 
 export const CONTENT_DEFAULTS_DARK: ContentColors = {
-  content_bg: '#19191a',
-  content_card_bg: '#1e1e20',
-  content_hover_bg: '#252527',
+  content_bg: '#171718',
+  content_card_bg: '#212123',
+  content_hover_bg: '#2a2a2d',
   content_text: '#e2e8f0',
-  content_text_secondary: '#94a3b8',
+  content_text_secondary: '#a1afc0',
   content_text_heading: '#f8fafc',
 };
 
