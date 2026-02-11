@@ -28,7 +28,7 @@ const BADGE_CLASS = 'bg-muted/60 text-foreground/80 dark:bg-white/8 dark:text-wh
 
 export default function ClientesPage() {
   const {
-    clientes, addClienteConSuscripciones, updateCliente, deleteCliente,
+    clientes, suscripciones, addClienteConSuscripciones, updateCliente, deleteCliente,
     getSuscripcionesByCliente, servicios, getServicioById,
   } = useData();
 
@@ -54,12 +54,14 @@ export default function ClientesPage() {
         const nombre = c.nombre.toLowerCase();
         const whatsapp = c.whatsapp.toLowerCase();
         const pais = (c.pais || '').toLowerCase();
+        const notas = (c.notas || '').toLowerCase();
         const subs = getSuscripcionesByCliente(c.id);
         const servicioNames = subs.map(s => {
           const serv = getServicioById(s.servicioId);
           return serv?.nombre?.toLowerCase() || '';
         }).join(' ');
-        return nombre.includes(q) || whatsapp.includes(q) || pais.includes(q) || servicioNames.includes(q);
+        const credenciales = subs.map(s => (s.credencialEmail || '').toLowerCase()).join(' ');
+        return nombre.includes(q) || whatsapp.includes(q) || pais.includes(q) || notas.includes(q) || servicioNames.includes(q) || credenciales.includes(q);
       });
     }
 
@@ -88,7 +90,7 @@ export default function ClientesPage() {
     });
 
     return resultado;
-  }, [clientes, searchQuery, sortBy, getSuscripcionesByCliente, getServicioById]);
+  }, [clientes, suscripciones, searchQuery, sortBy, getSuscripcionesByCliente, getServicioById]);
 
   const resetCreate = () => {
     setNewForm({ nombre: '', whatsapp: '', pais: '' });
@@ -134,7 +136,7 @@ export default function ClientesPage() {
             <Input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Buscar nombre, tel..."
+              placeholder="Nombre, tel, correo..."
               className="pl-8 h-8 text-xs"
             />
           </div>
