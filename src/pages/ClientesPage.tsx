@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Cliente, PaisCliente } from '@/types';
 import { format, differenceInDays, startOfDay } from 'date-fns';
@@ -23,22 +23,8 @@ import ClienteEditPanel from '@/components/ClienteEditPanel';
 
 const PAISES: PaisCliente[] = ['Venezuela', 'Ecuador', 'Colombia', 'Mexico'];
 
-// Color palette for service badges
-const BADGE_COLORS = [
-  'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
-  'bg-violet-500/15 text-violet-700 dark:text-violet-400',
-  'bg-sky-500/15 text-sky-700 dark:text-sky-400',
-  'bg-amber-500/15 text-amber-700 dark:text-amber-400',
-  'bg-rose-500/15 text-rose-700 dark:text-rose-400',
-  'bg-teal-500/15 text-teal-700 dark:text-teal-400',
-  'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400',
-  'bg-orange-500/15 text-orange-700 dark:text-orange-400',
-];
-
-function getServiceColor(servicioId: string, allIds: string[]): string {
-  const idx = allIds.indexOf(servicioId);
-  return BADGE_COLORS[idx % BADGE_COLORS.length];
-}
+// Corporate monochrome badge style
+const BADGE_CLASS = 'bg-muted/60 text-foreground/80 dark:bg-white/8 dark:text-white/70';
 
 export default function ClientesPage() {
   const {
@@ -56,8 +42,6 @@ export default function ClientesPage() {
   // Edit client form state
   const [editForm, setEditForm] = useState({ nombre: '', whatsapp: '', pais: '' as PaisCliente | '', notas: '' });
 
-  // All service IDs for consistent color mapping
-  const allServiceIds = useMemo(() => servicios.map(s => s.id), [servicios]);
 
   const resetCreate = () => {
     setNewForm({ nombre: '', whatsapp: '', pais: '' });
@@ -223,11 +207,10 @@ export default function ClientesPage() {
                       ) : (
                         <div className="space-y-1.5">
                           {serviciosAgrupados.map(g => {
-                            const colorClass = getServiceColor(g.servicioId, allServiceIds);
                             const hoy = startOfDay(new Date());
                             return (
                               <div key={g.nombre} className="flex items-center gap-2">
-                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium shrink-0 ${colorClass}`}>
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium shrink-0 ${BADGE_CLASS}`}>
                                   {g.fechas.length > 1 ? g.fechas.length + 'x ' : ''}{g.nombre}
                                 </span>
                                 <div className="flex flex-wrap gap-x-3 gap-y-0.5">
