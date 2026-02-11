@@ -38,6 +38,7 @@ const emptyForm = {
   servicioAsociado: '',
   proveedor: '',
   costoMensual: '',
+  vpn: '',
   notas: '',
 };
 
@@ -59,6 +60,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
         servicioAsociado: editing.servicioAsociado || '',
         proveedor: editing.proveedor || '',
         costoMensual: editing.costoMensual != null ? String(editing.costoMensual) : '',
+        vpn: editing.vpn || '',
         notas: editing.notas || '',
       });
       setHistorialLocal(editing.historialCredenciales || []);
@@ -103,6 +105,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
         servicioAsociado: form.servicioAsociado,
         proveedor: form.proveedor,
         costoMensual: parseFloat(form.costoMensual) || 0,
+        vpn: form.vpn || undefined,
         notas: form.notas || undefined,
         credencialFechaInicio: caidaReportada ? format(new Date(), 'yyyy-MM-dd') : editing.credencialFechaInicio,
         historialCredenciales: historialLocal,
@@ -115,6 +118,7 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
         ...form,
         estado: 'activo',
         costoMensual: parseFloat(form.costoMensual) || 0,
+        vpn: form.vpn || undefined,
         notas: form.notas || undefined,
         credencialFechaInicio: format(new Date(), 'yyyy-MM-dd'),
       });
@@ -183,10 +187,14 @@ export default function PanelFormDialog({ open, onOpenChange, editing }: Props) 
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label>Proveedor (opcional)</Label>
               <Input value={form.proveedor} onChange={e => setForm(f => ({ ...f, proveedor: e.target.value }))} placeholder="De dónde lo compraste" />
+            </div>
+            <div className="space-y-2">
+              <Label>VPN (opcional)</Label>
+              <Input value={form.vpn} onChange={e => setForm(f => ({ ...f, vpn: e.target.value }))} placeholder="ej: USA, Brasil..." />
             </div>
             <div className="space-y-2">
               <Label>Costo Mensual ($)</Label>

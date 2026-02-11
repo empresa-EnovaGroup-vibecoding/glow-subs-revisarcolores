@@ -72,6 +72,7 @@ function panelToRow(p: Panel) {
     proveedor: p.proveedor || null, costo_mensual: p.costoMensual,
     credencial_fecha_inicio: p.credencialFechaInicio,
     historial_credenciales: p.historialCredenciales as any,
+    vpn: p.vpn || null,
     notas: p.notas ?? null,
   };
 }
@@ -84,6 +85,7 @@ function rowToPanel(r: any): Panel {
     proveedor: r.proveedor || '', costoMensual: r.costo_mensual,
     credencialFechaInicio: r.credencial_fecha_inicio,
     historialCredenciales: r.historial_credenciales || [],
+    vpn: r.vpn ?? undefined,
     notas: r.notas ?? undefined,
   };
 }

@@ -23,6 +23,7 @@ export interface Panel {
   costoMensual: number;
   credencialFechaInicio: string;
   historialCredenciales: CredencialHistorial[];
+  vpn?: string;
   notas?: string;
 }
 

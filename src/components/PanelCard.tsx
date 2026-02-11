@@ -111,6 +111,9 @@ export default function PanelCard({ panel, clientesAsignados = [], searchQuery =
           {panel.proveedor && (
             <p className="text-[11px] text-muted-foreground">Proveedor: {panel.proveedor}</p>
           )}
+          {panel.vpn && (
+            <p className="text-[11px] text-muted-foreground">VPN: <span className="font-medium text-foreground">{panel.vpn}</span></p>
+          )}
         </div>
         <div className="flex items-center gap-1.5">
           {panel.servicioAsociado && (
