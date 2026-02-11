@@ -102,15 +102,6 @@ export default function ClientesPage() {
     return 'al-dia';
   };
 
-  const getProximoVencimiento = (subs: Suscripcion[]): string | null => {
-    const activas = subs.filter(s => s.estado === 'activa');
-    if (activas.length === 0) return null;
-    const sorted = [...activas].sort(
-      (a, b) => new Date(a.fechaVencimiento).getTime() - new Date(b.fechaVencimiento).getTime()
-    );
-    return sorted[0].fechaVencimiento;
-  };
-
   const estadoConfig: Record<string, { label: string; className: string }> = {
     'al-dia': { label: 'Al día', className: 'alert-badge bg-success/10 text-success' },
     'por-vencer': { label: 'Por vencer', className: 'alert-badge bg-warning/10 text-warning' },
@@ -207,9 +198,8 @@ export default function ClientesPage() {
                 <th className="table-header px-4 py-3 text-left">Nombre</th>
                 <th className="table-header px-4 py-3 text-left">País</th>
                 <th className="table-header px-4 py-3 text-left">WhatsApp</th>
-                <th className="table-header px-4 py-3 text-left">Servicios</th>
+                <th className="table-header px-4 py-3 text-left">Servicios y Vencimientos</th>
                 <th className="table-header px-4 py-3 text-left">Estado</th>
-                <th className="table-header px-4 py-3 text-left">Vencimiento</th>
                 <th className="table-header px-4 py-3 text-right">Acciones</th>
               </tr>
             </thead>
@@ -218,8 +208,17 @@ export default function ClientesPage() {
                 const subs = getSuscripcionesByCliente(cliente.id);
                 const estado = getEstado(subs);
                 const estadoInfo = estadoConfig[estado];
-                const proximoVenc = getProximoVencimiento(subs);
                 const activeSubs = subs.filter(s => s.estado === 'activa');
+
+                // Group subscriptions by service name
+                const grouped = activeSubs.reduce<Record<string, { servicioId: string; nombre: string; fechas: string[] }>>((acc, sub) => {
+                  const servicio = getServicioById(sub.servicioId);
+                  const nombre = servicio?.nombre || '?';
+                  if (!acc[nombre]) acc[nombre] = { servicioId: sub.servicioId, nombre, fechas: [] };
+                  acc[nombre].fechas.push(sub.fechaVencimiento);
+                  return acc;
+                }, {});
+                const serviciosAgrupados = Object.values(grouped);
 
                 return (
                   <tr key={cliente.id} className="hover:bg-muted/30 transition-colors">
@@ -237,20 +236,32 @@ export default function ClientesPage() {
                       </a>
                     </td>
                     <td className="px-4 py-3">
-                      {activeSubs.length === 0 ? (
+                      {serviciosAgrupados.length === 0 ? (
                         <span className="text-xs text-muted-foreground">—</span>
                       ) : (
-                        <div className="flex flex-wrap gap-1">
-                          {activeSubs.map(sub => {
-                            const servicio = getServicioById(sub.servicioId);
-                            const colorClass = getServiceColor(sub.servicioId, allServiceIds);
+                        <div className="space-y-1.5">
+                          {serviciosAgrupados.map(g => {
+                            const colorClass = getServiceColor(g.servicioId, allServiceIds);
+                            const hoy = startOfDay(new Date());
                             return (
-                              <span
-                                key={sub.id}
-                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${colorClass}`}
-                              >
-                                {servicio?.nombre || '?'}
-                              </span>
+                              <div key={g.nombre} className="flex items-center gap-2">
+                                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium shrink-0 ${colorClass}`}>
+                                  {g.fechas.length > 1 ? g.fechas.length + 'x ' : ''}{g.nombre}
+                                </span>
+                                <div className="flex gap-1.5">
+                                  {g.fechas
+                                    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+                                    .map((fecha, i) => {
+                                      const dias = differenceInDays(startOfDay(new Date(fecha)), hoy);
+                                      const colorFecha = dias < 0 ? 'text-destructive' : dias <= 5 ? 'text-warning' : 'text-muted-foreground';
+                                      return (
+                                        <span key={i} className={`text-[10px] ${colorFecha}`}>
+                                          {format(new Date(fecha), 'dd MMM', { locale: es })}
+                                        </span>
+                                      );
+                                    })}
+                                </div>
+                              </div>
                             );
                           })}
                         </div>
@@ -258,15 +269,6 @@ export default function ClientesPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={estadoInfo.className}>{estadoInfo.label}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {proximoVenc ? (
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(proximoVenc), 'dd MMM yyyy', { locale: es })}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1">
