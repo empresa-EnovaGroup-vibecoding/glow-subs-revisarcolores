@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { format, isToday, isBefore, addDays, isAfter, startOfDay, differenceInDays, isSameMonth } from 'date-fns';
+import { format, isToday, isBefore, addDays, isAfter, startOfDay, differenceInDays, isSameMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   AlertTriangle, Clock, Users, Monitor, TrendingUp,
@@ -88,6 +88,29 @@ export default function Dashboard() {
 
     return Math.round((usdtFromCortes + usdDirectos - totalGastos) * 100) / 100;
   }, [paneles, cortes, pagos]);
+
+  // Paneles por vencer (NEW)
+  const panelesProxVencer = useMemo(() => {
+    const hoy = new Date();
+    return paneles.filter(p => {
+      if (!p.fechaExpiracion) return false;
+      const diff = differenceInDays(parseISO(p.fechaExpiracion), hoy);
+      return diff >= 0 && diff <= 15;
+    }).sort((a, b) => {
+      const diffA = differenceInDays(parseISO(a.fechaExpiracion), new Date());
+      const diffB = differenceInDays(parseISO(b.fechaExpiracion), new Date());
+      return diffA - diffB;
+    });
+  }, [paneles]);
+
+  const panelesVencidos = useMemo(() => {
+    const hoy = new Date();
+    return paneles.filter(p => {
+      if (!p.fechaExpiracion) return false;
+      const diff = differenceInDays(parseISO(p.fechaExpiracion), hoy);
+      return diff < 0;
+    });
+  }, [paneles]);
 
   // --- Renovar action ---
   const handleRenovar = useCallback((sub: Suscripcion) => {
@@ -253,6 +276,45 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
+
+      {/* Paneles por vencer (NEW SECTION) */}
+      {(panelesProxVencer.length > 0 || panelesVencidos.length > 0) && (
+        <div className="rounded-lg border border-warning/30 bg-warning/5 p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <Monitor className="h-4 w-4 text-warning" />
+            <h3 className="text-sm font-semibold text-warning">Paneles por Vencer</h3>
+            <span className="alert-badge bg-warning/10 text-warning">{panelesProxVencer.length + panelesVencidos.length}</span>
+          </div>
+          <div className="space-y-2">
+            {panelesVencidos.map(p => {
+              const dias = Math.abs(differenceInDays(parseISO(p.fechaExpiracion), new Date()));
+              return (
+                <div key={p.id} className="flex items-center justify-between rounded-md bg-card border border-destructive/30 p-3 text-sm gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{p.nombre}</p>
+                    <p className="text-xs text-muted-foreground truncate">{p.servicioAsociado}</p>
+                  </div>
+                  <span className="text-xs text-destructive font-semibold whitespace-nowrap">Vencido hace {dias}d</span>
+                </div>
+              );
+            })}
+            {panelesProxVencer.map(p => {
+              const dias = differenceInDays(parseISO(p.fechaExpiracion), new Date());
+              return (
+                <div key={p.id} className="flex items-center justify-between rounded-md bg-card border border-border/50 p-3 text-sm gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{p.nombre}</p>
+                    <p className="text-xs text-muted-foreground truncate">{p.servicioAsociado}</p>
+                  </div>
+                  <span className={`text-xs whitespace-nowrap ${dias <= 3 ? 'text-destructive font-semibold' : 'text-warning'}`}>
+                    {dias === 0 ? 'Vence hoy' : `Vence en ${dias}d`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Vencimiento sections */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

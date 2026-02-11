@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Panel } from '@/types';
-import { format } from 'date-fns';
+import { format, differenceInDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Edit2, Eye, EyeOff, Copy, Check, ChevronDown, ChevronUp, History } from 'lucide-react';
+import { Edit2, Eye, EyeOff, Copy, Check, ChevronDown, ChevronUp, History, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -26,9 +26,10 @@ function getServiceColor(service: string) {
 interface PanelCardProps {
   panel: Panel;
   onEdit: (panel: Panel) => void;
+  onRenovar?: (panel: Panel) => void;
 }
 
-export default function PanelCard({ panel, onEdit }: PanelCardProps) {
+export default function PanelCard({ panel, onEdit, onRenovar }: PanelCardProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showHistorial, setShowHistorial] = useState(false);
@@ -37,6 +38,13 @@ export default function PanelCard({ panel, onEdit }: PanelCardProps) {
   const porcentajeUso = (panel.cuposUsados / panel.capacidadTotal) * 100;
   const historial = panel.historialCredenciales || [];
 
+  // Expiration status
+  const diasRestantes = panel.fechaExpiracion
+    ? differenceInDays(parseISO(panel.fechaExpiracion), new Date())
+    : null;
+  const estaVencido = diasRestantes !== null && diasRestantes < 0;
+  const porVencer = diasRestantes !== null && diasRestantes >= 0 && diasRestantes <= 15;
+
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
@@ -44,10 +52,29 @@ export default function PanelCard({ panel, onEdit }: PanelCardProps) {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
+  const handleRenovar = () => {
+    if (onRenovar) {
+      onRenovar(panel);
+      toast.success(`${panel.nombre} renovado +30 dias`);
+    }
+  };
+
   return (
-    <div className="stat-card space-y-3">
-      {/* Header */}
-      <div className="flex items-start justify-between">
+    <div className={`stat-card space-y-3 relative ${estaVencido ? 'opacity-60 ring-1 ring-destructive/40' : porVencer ? 'ring-2 ring-destructive/50' : ''}`}>
+      {/* Expiration banner */}
+      {estaVencido && (
+        <div className="absolute top-0 left-0 right-0 bg-destructive text-destructive-foreground text-center text-[11px] font-bold py-1 rounded-t-lg -mt-px -mx-px">
+          VENCIDO hace {Math.abs(diasRestantes!)} dia{Math.abs(diasRestantes!) !== 1 ? 's' : ''}
+        </div>
+      )}
+      {porVencer && !estaVencido && (
+        <div className="absolute top-0 left-0 right-0 bg-warning text-warning-foreground text-center text-[11px] font-bold py-1 rounded-t-lg -mt-px -mx-px">
+          Vence en {diasRestantes} dia{diasRestantes !== 1 ? 's' : ''}
+        </div>
+      )}
+
+      {/* Header - add top margin if banner is shown */}
+      <div className={`flex items-start justify-between ${estaVencido || porVencer ? 'mt-5' : ''}`}>
         <div className="space-y-1">
           <h3 className="font-semibold">{panel.nombre}</h3>
           {panel.proveedor && (
@@ -62,9 +89,9 @@ export default function PanelCard({ panel, onEdit }: PanelCardProps) {
           )}
           <Badge
             variant="default"
-            className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-transparent"
+            className={`text-[10px] px-2 py-0.5 border-transparent ${estaVencido ? 'bg-destructive/20 text-destructive' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'}`}
           >
-            ACTIVO
+            {estaVencido ? 'VENCIDO' : 'ACTIVO'}
           </Badge>
         </div>
       </div>
@@ -122,7 +149,9 @@ export default function PanelCard({ panel, onEdit }: PanelCardProps) {
       {/* Fechas */}
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
         <span>Compra: {format(new Date(panel.fechaCompra), 'dd MMM yyyy', { locale: es })}</span>
-        <span>Exp: {format(new Date(panel.fechaExpiracion), 'dd MMM yyyy', { locale: es })}</span>
+        <span className={estaVencido ? 'text-destructive font-medium' : porVencer ? 'text-warning font-medium' : ''}>
+          Exp: {format(new Date(panel.fechaExpiracion), 'dd MMM yyyy', { locale: es })}
+        </span>
       </div>
 
       {/* Historial de Credenciales */}
@@ -151,6 +180,11 @@ export default function PanelCard({ panel, onEdit }: PanelCardProps) {
         <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => onEdit(panel)}>
           <Edit2 className="h-3 w-3" /> Editar
         </Button>
+        {(porVencer || estaVencido) && onRenovar && (
+          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-primary hover:text-primary" onClick={handleRenovar}>
+            <RefreshCw className="h-3 w-3" /> Renovar +30d
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -170,7 +204,7 @@ function CredencialHistorialEntry({ entry, index }: { entry: Panel['historialCre
   return (
     <div className="text-[11px] text-muted-foreground space-y-0.5 py-1">
       <div className="flex items-center gap-1">
-        <Badge variant="destructive" className="text-[9px] px-1.5 py-0">CAÍDO</Badge>
+        <Badge variant="destructive" className="text-[9px] px-1.5 py-0">CAIDO</Badge>
         <span>
           {format(new Date(entry.fechaInicio), 'dd/MM/yyyy', { locale: es })} — {format(new Date(entry.fechaFin), 'dd/MM/yyyy', { locale: es })}
         </span>

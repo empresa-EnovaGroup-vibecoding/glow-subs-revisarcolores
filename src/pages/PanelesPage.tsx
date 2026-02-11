@@ -7,35 +7,59 @@ import PanelCard from '@/components/PanelCard';
 import PanelFormDialog from '@/components/PanelFormDialog';
 import PanelesResumen from '@/components/PanelesResumen';
 import { Input } from '@/components/ui/input';
+import { differenceInDays, parseISO } from 'date-fns';
 
 const SERVICIOS_FILTER = ['Todos', 'ChatGPT', 'CapCut', 'Canva', 'Veo 3', 'Claude', 'Midjourney'];
 
 export default function PanelesPage() {
-  const { paneles, deletePanel } = useData();
+  const { paneles, deletePanel, updatePanel } = useData();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Panel | null>(null);
   const [filterServicio, setFilterServicio] = useState('Todos');
   const [search, setSearch] = useState('');
+  const [filterResumen, setFilterResumen] = useState('');
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
+    const hoy = new Date();
     return paneles.filter(p => {
+      // Resumen filter (por-vencer)
+      if (filterResumen === 'por-vencer') {
+        if (!p.fechaExpiracion) return false;
+        const diff = differenceInDays(parseISO(p.fechaExpiracion), hoy);
+        if (diff > 15) return false; // only show expiring in 15 days or already expired
+      }
       if (filterServicio !== 'Todos' && !p.servicioAsociado?.toLowerCase().includes(filterServicio.toLowerCase())) return false;
       if (q && !p.nombre.toLowerCase().includes(q) && !p.email.toLowerCase().includes(q) && !(p.notas || '').toLowerCase().includes(q)) return false;
       return true;
+    }).sort((a, b) => {
+      // When filtering by vencer, sort by expiration date (soonest first)
+      if (filterResumen === 'por-vencer') {
+        const diffA = differenceInDays(parseISO(a.fechaExpiracion), hoy);
+        const diffB = differenceInDays(parseISO(b.fechaExpiracion), hoy);
+        return diffA - diffB;
+      }
+      return 0;
     });
-  }, [paneles, filterServicio, search]);
+  }, [paneles, filterServicio, search, filterResumen]);
 
   const handleEdit = (panel: Panel) => {
     setEditing(panel);
     setFormOpen(true);
   };
 
+  const handleFilterResumen = (filter: string) => {
+    setFilterResumen(filter);
+    if (filter) {
+      setFilterServicio('Todos');
+      setSearch('');
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-
         <div>
           <h1 className="text-lg font-semibold">Paneles</h1>
           <p className="text-sm text-muted-foreground">Gestiona tus paneles de IA</p>
@@ -47,7 +71,15 @@ export default function PanelesPage() {
       </div>
 
       {/* Resumen */}
-      <PanelesResumen paneles={paneles} />
+      <PanelesResumen paneles={paneles} onFilterChange={handleFilterResumen} activeFilter={filterResumen} />
+
+      {/* Active filter banner */}
+      {filterResumen === 'por-vencer' && (
+        <div className="flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2">
+          <p className="text-sm font-medium text-destructive">Mostrando paneles por vencer o vencidos</p>
+          <button onClick={() => setFilterResumen('')} className="text-xs text-destructive hover:underline">Quitar filtro</button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
@@ -64,9 +96,9 @@ export default function PanelesPage() {
           {SERVICIOS_FILTER.map(s => (
             <button
               key={s}
-              onClick={() => setFilterServicio(s)}
+              onClick={() => { setFilterServicio(s); setFilterResumen(''); }}
               className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${
-                filterServicio === s
+                filterServicio === s && !filterResumen
                   ? 'bg-secondary text-foreground'
                   : 'text-muted-foreground hover:bg-accent'
               }`}
@@ -85,7 +117,7 @@ export default function PanelesPage() {
           </div>
           <p className="text-sm font-medium">No hay paneles</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {filterServicio !== 'Todos' ? 'Intenta cambiar los filtros' : 'Agrega tu primer panel de IA'}
+            {filterServicio !== 'Todos' || filterResumen ? 'Intenta cambiar los filtros' : 'Agrega tu primer panel de IA'}
           </p>
         </div>
       ) : (
@@ -95,6 +127,11 @@ export default function PanelesPage() {
               key={panel.id}
               panel={panel}
               onEdit={handleEdit}
+              onRenovar={(p) => {
+                const newDate = new Date(p.fechaExpiracion);
+                newDate.setDate(newDate.getDate() + 30);
+                updatePanel({ ...p, fechaExpiracion: newDate.toISOString().split('T')[0] });
+              }}
             />
           ))}
         </div>
