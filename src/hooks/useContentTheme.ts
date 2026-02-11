@@ -27,9 +27,10 @@ export const CONTENT_DEFAULTS_DARK: ContentColors = {
   content_text_heading: '#f5f5f7',
 };
 
-const STORAGE_KEY_LIGHT = 'content-theme-colors-light';
-const STORAGE_KEY_DARK = 'content-theme-colors-dark';
-const CUSTOM_FLAG_KEY = 'content-theme-custom';
+// v2: bumped to invalidate old cached colors after Linear redesign
+const STORAGE_KEY_LIGHT = 'content-theme-colors-light-v2';
+const STORAGE_KEY_DARK = 'content-theme-colors-dark-v2';
+const CUSTOM_FLAG_KEY = 'content-theme-custom-v2';
 
 function getStorageKey(isDark: boolean) {
   return isDark ? STORAGE_KEY_DARK : STORAGE_KEY_LIGHT;
