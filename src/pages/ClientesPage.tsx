@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
-import { Cliente, Suscripcion, PaisCliente } from '@/types';
+import { Cliente, PaisCliente } from '@/types';
 import { format, differenceInDays, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Plus, Trash2, Edit2, Phone, Users } from 'lucide-react';
@@ -84,29 +84,6 @@ export default function ClientesPage() {
     if (!editingCliente) return;
     updateCliente({ ...editingCliente, ...editForm, pais: editForm.pais || undefined, notas: editForm.notas || undefined });
     setEditingCliente(null);
-  };
-
-  // --- Status helpers ---
-  const getEstado = (subs: Suscripcion[]) => {
-    if (subs.length === 0) return 'sin-servicio';
-    const hoy = startOfDay(new Date());
-    const activas = subs.filter(s => s.estado === 'activa');
-    if (activas.length === 0) return 'vencido';
-    const hayVencido = activas.some(s => differenceInDays(startOfDay(new Date(s.fechaVencimiento)), hoy) < 0);
-    if (hayVencido) return 'vencido';
-    const hayPorVencer = activas.some(s => {
-      const dias = differenceInDays(startOfDay(new Date(s.fechaVencimiento)), hoy);
-      return dias >= 0 && dias <= 5;
-    });
-    if (hayPorVencer) return 'por-vencer';
-    return 'al-dia';
-  };
-
-  const estadoConfig: Record<string, { label: string; className: string }> = {
-    'al-dia': { label: 'Al día', className: 'alert-badge bg-success/10 text-success' },
-    'por-vencer': { label: 'Por vencer', className: 'alert-badge bg-warning/10 text-warning' },
-    'vencido': { label: 'Vencido', className: 'alert-badge bg-destructive/10 text-destructive' },
-    'sin-servicio': { label: 'Sin servicios', className: 'alert-badge bg-muted text-muted-foreground' },
   };
 
   return (
@@ -199,15 +176,12 @@ export default function ClientesPage() {
                 <th className="table-header px-4 py-3 text-left">País</th>
                 <th className="table-header px-4 py-3 text-left">WhatsApp</th>
                 <th className="table-header px-4 py-3 text-left">Servicios y Vencimientos</th>
-                <th className="table-header px-4 py-3 text-left">Estado</th>
                 <th className="table-header px-4 py-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {clientes.map(cliente => {
                 const subs = getSuscripcionesByCliente(cliente.id);
-                const estado = getEstado(subs);
-                const estadoInfo = estadoConfig[estado];
                 const activeSubs = subs.filter(s => s.estado === 'activa');
 
                 // Group subscriptions by service name
@@ -237,7 +211,7 @@ export default function ClientesPage() {
                     </td>
                     <td className="px-4 py-3">
                       {serviciosAgrupados.length === 0 ? (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-xs text-muted-foreground/60">Sin servicios</span>
                       ) : (
                         <div className="space-y-1.5">
                           {serviciosAgrupados.map(g => {
@@ -248,15 +222,24 @@ export default function ClientesPage() {
                                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium shrink-0 ${colorClass}`}>
                                   {g.fechas.length > 1 ? g.fechas.length + 'x ' : ''}{g.nombre}
                                 </span>
-                                <div className="flex gap-1.5">
+                                <div className="flex flex-wrap gap-x-3 gap-y-0.5">
                                   {g.fechas
                                     .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
                                     .map((fecha, i) => {
                                       const dias = differenceInDays(startOfDay(new Date(fecha)), hoy);
-                                      const colorFecha = dias < 0 ? 'text-destructive' : dias <= 5 ? 'text-warning' : 'text-muted-foreground';
+                                      const vencido = dias < 0;
+                                      const porVencer = dias >= 0 && dias <= 5;
+                                      const colorFecha = vencido ? 'text-destructive' : porVencer ? 'text-warning' : 'text-muted-foreground';
+                                      const label = vencido
+                                        ? 'Vencido'
+                                        : dias === 0 ? 'Hoy' : dias + 'd';
                                       return (
                                         <span key={i} className={`text-[10px] ${colorFecha}`}>
                                           {format(new Date(fecha), 'dd MMM', { locale: es })}
+                                          {' '}
+                                          <span className={`font-semibold ${vencido ? 'text-destructive' : porVencer ? 'text-warning' : 'text-success'}`}>
+                                            {label}
+                                          </span>
                                         </span>
                                       );
                                     })}
@@ -266,9 +249,6 @@ export default function ClientesPage() {
                           })}
                         </div>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={estadoInfo.className}>{estadoInfo.label}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1">
