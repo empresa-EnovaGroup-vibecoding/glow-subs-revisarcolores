@@ -3,7 +3,7 @@ import { useData } from '@/contexts/DataContext';
 import { Cliente, PaisCliente } from '@/types';
 import { format, differenceInDays, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Plus, Trash2, Edit2, Phone, Users, Search } from 'lucide-react';
+import { Plus, Trash2, Edit2, Phone, Users, Search, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +35,7 @@ export default function ClientesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'nombre' | 'vencimiento' | 'pais' | 'servicios'>('nombre');
 
   // New client form state
   const [newForm, setNewForm] = useState({ nombre: '', whatsapp: '', pais: '' as PaisCliente | '' });
@@ -44,21 +45,50 @@ export default function ClientesPage() {
   const [editForm, setEditForm] = useState({ nombre: '', whatsapp: '', pais: '' as PaisCliente | '', notas: '' });
 
   const clientesFiltrados = useMemo(() => {
-    if (!searchQuery) return clientes;
-    const q = searchQuery.toLowerCase();
-    return clientes.filter(c => {
-      const nombre = c.nombre.toLowerCase();
-      const whatsapp = c.whatsapp.toLowerCase();
-      const pais = (c.pais || '').toLowerCase();
-      // Also search in service names
-      const subs = getSuscripcionesByCliente(c.id);
-      const servicioNames = subs.map(s => {
-        const serv = getServicioById(s.servicioId);
-        return serv?.nombre?.toLowerCase() || '';
-      }).join(' ');
-      return nombre.includes(q) || whatsapp.includes(q) || pais.includes(q) || servicioNames.includes(q);
+    let resultado = [...clientes];
+
+    // Filter
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      resultado = resultado.filter(c => {
+        const nombre = c.nombre.toLowerCase();
+        const whatsapp = c.whatsapp.toLowerCase();
+        const pais = (c.pais || '').toLowerCase();
+        const subs = getSuscripcionesByCliente(c.id);
+        const servicioNames = subs.map(s => {
+          const serv = getServicioById(s.servicioId);
+          return serv?.nombre?.toLowerCase() || '';
+        }).join(' ');
+        return nombre.includes(q) || whatsapp.includes(q) || pais.includes(q) || servicioNames.includes(q);
+      });
+    }
+
+    // Sort
+    const hoy = startOfDay(new Date());
+    resultado.sort((a, b) => {
+      if (sortBy === 'nombre') {
+        return a.nombre.localeCompare(b.nombre, 'es');
+      }
+      if (sortBy === 'vencimiento') {
+        const subsA = getSuscripcionesByCliente(a.id).filter(s => s.estado === 'activa');
+        const subsB = getSuscripcionesByCliente(b.id).filter(s => s.estado === 'activa');
+        const minA = subsA.length > 0 ? Math.min(...subsA.map(s => new Date(s.fechaVencimiento).getTime())) : Infinity;
+        const minB = subsB.length > 0 ? Math.min(...subsB.map(s => new Date(s.fechaVencimiento).getTime())) : Infinity;
+        return minA - minB;
+      }
+      if (sortBy === 'pais') {
+        return (a.pais || 'ZZZ').localeCompare(b.pais || 'ZZZ', 'es');
+      }
+      if (sortBy === 'servicios') {
+        const countA = getSuscripcionesByCliente(a.id).filter(s => s.estado === 'activa').length;
+        const countB = getSuscripcionesByCliente(b.id).filter(s => s.estado === 'activa').length;
+        return countB - countA;
+      }
+      return 0;
     });
-  }, [clientes, searchQuery, getSuscripcionesByCliente, getServicioById]);
+
+    return resultado;
+  }, [clientes, searchQuery, sortBy, getSuscripcionesByCliente, getServicioById]);
 
   const resetCreate = () => {
     setNewForm({ nombre: '', whatsapp: '', pais: '' });
@@ -99,15 +129,27 @@ export default function ClientesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="relative w-52">
+          <div className="relative w-48">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Buscar nombre, tel, servicio..."
+              placeholder="Buscar nombre, tel..."
               className="pl-8 h-8 text-xs"
             />
           </div>
+          <Select value={sortBy} onValueChange={v => setSortBy(v as typeof sortBy)}>
+            <SelectTrigger className="h-8 w-[140px] text-xs">
+              <ArrowUpDown className="h-3 w-3 mr-1 shrink-0" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="nombre">Nombre A-Z</SelectItem>
+              <SelectItem value="vencimiento">Vencimiento</SelectItem>
+              <SelectItem value="pais">Pais</SelectItem>
+              <SelectItem value="servicios">Mas servicios</SelectItem>
+            </SelectContent>
+          </Select>
 
         {/* === 1. NEW CLIENT DIALOG === */}
         <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) resetCreate(); }}>
