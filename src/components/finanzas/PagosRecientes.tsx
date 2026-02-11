@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { isSameMonth, format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Trash2, ImageIcon } from 'lucide-react';
+import { Trash2, ImageIcon, Search } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 interface Props {
   selectedDate: Date;
@@ -18,21 +19,51 @@ interface Props {
 export default function PagosRecientes({ selectedDate }: Props) {
   const { pagos, clientes, deletePago } = useData();
   const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(null);
-
-  const pagosMes = pagos
-    .filter(p => isSameMonth(new Date(p.fecha), selectedDate))
-    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+  const [searchPago, setSearchPago] = useState('');
 
   const getClienteNombre = (id: string) => clientes.find(c => c.id === id)?.nombre || 'Desconocido';
 
-  if (pagosMes.length === 0) return null;
+  const pagosMes = useMemo(() => {
+    const todos = pagos
+      .filter(p => isSameMonth(new Date(p.fecha), selectedDate))
+      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
+    if (!searchPago) return todos;
+
+    const q = searchPago.toLowerCase();
+    return todos.filter(p => {
+      const nombre = getClienteNombre(p.clienteId).toLowerCase();
+      const metodo = p.metodo.toLowerCase();
+      return nombre.includes(q) || metodo.includes(q);
+    });
+  }, [pagos, selectedDate, searchPago, clientes]);
+
+  const totalMes = pagos.filter(p => isSameMonth(new Date(p.fecha), selectedDate)).length;
+
+  if (totalMes === 0) return null;
 
   return (
     <>
       <div className="rounded-lg border border-border bg-card">
-        <div className="p-4 pb-2">
-          <h3 className="text-sm font-semibold">Pagos Recibidos este Mes</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">{pagosMes.length} pago{pagosMes.length !== 1 ? 's' : ''} registrado{pagosMes.length !== 1 ? 's' : ''}</p>
+        <div className="p-4 pb-2 flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h3 className="text-sm font-semibold">Pagos Recibidos este Mes</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {searchPago
+                ? pagosMes.length + ' de ' + totalMes + ' pagos'
+                : totalMes + ' pago' + (totalMes !== 1 ? 's' : '') + ' registrado' + (totalMes !== 1 ? 's' : '')
+              }
+            </p>
+          </div>
+          <div className="relative w-48">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={searchPago}
+              onChange={e => setSearchPago(e.target.value)}
+              placeholder="Buscar cliente o metodo..."
+              className="pl-8 h-8 text-xs"
+            />
+          </div>
         </div>
         <Table>
           <TableHeader>

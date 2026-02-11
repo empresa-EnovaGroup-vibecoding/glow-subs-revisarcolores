@@ -16,15 +16,36 @@ export function getWhatsAppNotificationUrl(
 
   switch (tipo) {
     case 'hoy':
-      mensaje = `Hola ${cliente.nombre}! Tu suscripción de ${servicioNombre} vence hoy ${fechaVenc}. ¿Quieres renovar? Responde SI para renovar 🙌`;
+      mensaje = `Hola ${cliente.nombre}! Tu suscripcion de ${servicioNombre} vence hoy ${fechaVenc}. Quieres renovar? Responde SI para renovar`;
       break;
     case 'proximo':
-      mensaje = `Hola ${cliente.nombre}! Tu suscripción de ${servicioNombre} vence el ${fechaVenc}. ¿Te lo renuevo para que no pierdas acceso? 💬`;
+      mensaje = `Hola ${cliente.nombre}! Tu suscripcion de ${servicioNombre} vence el ${fechaVenc}. Te lo renuevo para que no pierdas acceso?`;
       break;
     case 'vencido':
-      mensaje = `Hola ${cliente.nombre}! Tu suscripción de ${servicioNombre} venció el ${fechaVenc}. ¿Quieres renovar para seguir usando el servicio? 🚀`;
+      mensaje = `Hola ${cliente.nombre}! Tu suscripcion de ${servicioNombre} vencio el ${fechaVenc}. Quieres renovar para seguir usando el servicio?`;
       break;
   }
 
+  return `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+}
+
+export function getWhatsAppCobroUrl(
+  cliente: Cliente,
+  saldo: number,
+  servicios: string[]
+): string {
+  const numero = cliente.whatsapp.replace(/\D/g, '');
+  const servicioText = servicios.length === 1 ? servicios[0] : servicios.join(', ');
+  const mensaje = `Hola ${cliente.nombre}! Recordatorio de tu pago de ${servicioText} ($${saldo} USD). Avisame cuando lo envies!`;
+  return `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+}
+
+export function getWhatsAppCaidaUrl(
+  cliente: Cliente,
+  panelNombre: string,
+  servicio: string
+): string {
+  const numero = cliente.whatsapp.replace(/\D/g, '');
+  const mensaje = `Hola ${cliente.nombre}! Te informo que el panel de ${servicio} (${panelNombre}) esta presentando problemas. Estamos trabajando para resolverlo lo antes posible. Disculpa las molestias!`;
   return `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
 }

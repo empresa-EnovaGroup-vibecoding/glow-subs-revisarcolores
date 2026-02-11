@@ -3,8 +3,11 @@ import { useData } from '@/contexts/DataContext';
 import { format as fmtDate } from 'date-fns';
 import { format, isSameMonth, addMonths, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MessageCircle, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Cliente } from '@/types';
+import { getWhatsAppCobroUrl } from '@/lib/whatsapp';
+import { toast } from 'sonner';
 import FinanzasResumen from '@/components/finanzas/FinanzasResumen';
 import TablaGastos from '@/components/finanzas/TablaGastos';
 import TablaIngresos from '@/components/finanzas/TablaIngresos';
@@ -20,9 +23,19 @@ import MetaMensual from '@/components/finanzas/MetaMensual';
 import MetaHistorial from '@/components/finanzas/MetaHistorial';
 import MetasPorServicio from '@/components/finanzas/MetasPorServicio';
 
+interface ClienteDeudor {
+  cliente: Cliente;
+  totalCobrar: number;
+  totalPagado: number;
+  saldo: number;
+  servicios: string[];
+}
+
 export default function FinanzasPage() {
-  const { paneles, suscripciones, pagos, clientes, cortes } = useData();
+  const { paneles, suscripciones, pagos, clientes, cortes, getServicioById } = useData();
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDeudores, setShowDeudores] = useState(false);
+  const [cobroIndex, setCobroIndex] = useState(-1);
 
   const mesLabel = format(selectedDate, 'MMMM yyyy', { locale: es });
 
@@ -36,70 +49,95 @@ export default function FinanzasPage() {
     [panelesActivos]
   );
 
-  // INGRESOS REALES: USDT from cortes + direct USD payments
+  // INGRESOS REALES
   const totalIngresos = useMemo(() => {
-    // 1. USDT real received from cortes this month
     const cortesDelMes = cortes.filter(c => isSameMonth(new Date(c.fecha), selectedDate));
     const usdtFromCortes = cortesDelMes.reduce((sum, c) => sum + c.usdtRecibidoReal, 0);
-
-    // 2. Direct USD payments (no currency conversion needed)
     const pagosDirectosUSD = pagos.filter(p =>
       isSameMonth(new Date(p.fecha), selectedDate) &&
       (!p.moneda || p.moneda === 'USD') &&
       !p.corteId
     );
     const usdDirectos = pagosDirectosUSD.reduce((sum, p) => sum + p.monto, 0);
-
-    // 3. Local currency payments that went through a corte (already counted in corte USDT)
-    // DON'T add them again — they're included in usdtFromCortes
-
     return Math.round((usdtFromCortes + usdDirectos) * 100) / 100;
   }, [cortes, pagos, selectedDate]);
 
   const ganancia = totalIngresos - totalGastos;
 
-  // Clientes que deben (active subs, no payment this month)
-  const clientesQueDeben = useMemo(() => {
+  // Clientes que deben - FULL LIST
+  const deudores = useMemo(() => {
     const clientesConSubActiva = new Set(
       suscripciones.filter(s => s.estado === 'activa').map(s => s.clienteId)
     );
-    let count = 0;
+    const result: ClienteDeudor[] = [];
     clientesConSubActiva.forEach(clienteId => {
+      const cliente = clientes.find(c => c.id === clienteId);
+      if (!cliente) return;
       const subsCliente = suscripciones.filter(s => s.clienteId === clienteId && s.estado === 'activa');
       const totalCobrar = subsCliente.reduce((sum, s) => sum + s.precioCobrado, 0);
       const pagosMes = pagos.filter(
         p => p.clienteId === clienteId && isSameMonth(new Date(p.fecha), selectedDate)
       );
       const totalPagado = pagosMes.reduce((sum, p) => sum + p.monto, 0);
-      if (totalPagado < totalCobrar) count++;
+      if (totalPagado < totalCobrar) {
+        const servicios = subsCliente.map(s => {
+          const servicio = getServicioById(s.servicioId);
+          return servicio?.nombre || 'Servicio';
+        });
+        result.push({
+          cliente,
+          totalCobrar,
+          totalPagado,
+          saldo: Math.round((totalCobrar - totalPagado) * 100) / 100,
+          servicios,
+        });
+      }
     });
-    return count;
-  }, [suscripciones, pagos, selectedDate]);
+    return result.sort((a, b) => b.saldo - a.saldo);
+  }, [suscripciones, pagos, clientes, selectedDate, getServicioById]);
 
-  // Pendiente de convertir: local currency payments without a corte this month
+  // Pendiente de convertir
   const pendienteConvertir = useMemo(() => {
     const pagosPendientes = pagos.filter(p =>
       isSameMonth(new Date(p.fecha), selectedDate) &&
       p.moneda && p.moneda !== 'USD' &&
       !p.corteId
     );
-
     const mxnTotal = pagosPendientes
       .filter(p => p.moneda === 'MXN')
       .reduce((sum, p) => sum + (p.montoOriginal || 0), 0);
     const copTotal = pagosPendientes
       .filter(p => p.moneda === 'COP')
       .reduce((sum, p) => sum + (p.montoOriginal || 0), 0);
-
     const parts: string[] = [];
     if (mxnTotal > 0) parts.push(`${mxnTotal.toLocaleString()} MXN`);
     if (copTotal > 0) parts.push(`${copTotal.toLocaleString()} COP`);
-
     return {
       count: pagosPendientes.length,
-      label: parts.length > 0 ? parts.join(' · ') : 'Sin pendientes',
+      label: parts.length > 0 ? parts.join(' + ') : 'Sin pendientes',
     };
   }, [pagos, selectedDate]);
+
+  // Cobrar siguiente
+  const handleCobrarSiguiente = () => {
+    const nextIndex = cobroIndex + 1;
+    if (nextIndex < deudores.length) {
+      const d = deudores[nextIndex];
+      window.open(getWhatsAppCobroUrl(d.cliente, d.saldo, d.servicios), '_blank');
+      setCobroIndex(nextIndex);
+      if (nextIndex === deudores.length - 1) {
+        toast.success('Ultimo cliente contactado!');
+      }
+    }
+  };
+
+  const handleToggleDeudores = () => {
+    if (deudores.length === 0) return;
+    setShowDeudores(!showDeudores);
+    if (!showDeudores) setCobroIndex(-1);
+  };
+
+  const totalDeuda = deudores.reduce((sum, d) => sum + d.saldo, 0);
 
   return (
     <div className="space-y-6">
@@ -130,9 +168,75 @@ export default function FinanzasPage() {
         totalGastos={totalGastos}
         totalIngresos={totalIngresos}
         ganancia={ganancia}
-        clientesQueDeben={clientesQueDeben}
+        clientesQueDeben={deudores.length}
         pendienteConvertir={pendienteConvertir}
+        onClientesQueDebenClick={handleToggleDeudores}
+        showDeudores={showDeudores}
       />
+
+      {/* Deudores list - collapsible */}
+      {showDeudores && deudores.length > 0 && (
+        <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h3 className="text-sm font-semibold text-warning">
+                {deudores.length} cliente{deudores.length !== 1 ? 's' : ''} debe{deudores.length === 1 ? '' : 'n'} ${totalDeuda.toLocaleString(undefined, { minimumFractionDigits: 2 })} USD
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Click en WhatsApp para cobrar uno por uno
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 border-warning/50 text-warning hover:bg-warning/10 hover:text-warning"
+              onClick={handleCobrarSiguiente}
+            >
+              <Send className="h-3.5 w-3.5" />
+              {cobroIndex < 0
+                ? 'Cobrar a todos (' + deudores.length + ')'
+                : cobroIndex >= deudores.length - 1
+                  ? 'Todos contactados!'
+                  : 'Siguiente ' + (cobroIndex + 2) + '/' + deudores.length
+              }
+            </Button>
+          </div>
+          <div className="space-y-1.5">
+            {deudores.map((d, i) => {
+              const contactado = i <= cobroIndex;
+              return (
+                <div
+                  key={d.cliente.id}
+                  className={'flex items-center justify-between rounded-md bg-card border p-3 text-sm gap-2 transition-opacity ' + (contactado ? 'border-success/30 opacity-60' : 'border-border/50')}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium truncate">{d.cliente.nombre}</p>
+                      {contactado && <span className="text-[10px] text-success font-medium">Contactado</span>}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{d.servicios.join(', ')}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold text-warning">${d.saldo.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                    {d.totalPagado > 0 && (
+                      <p className="text-[10px] text-muted-foreground">Pago ${d.totalPagado.toLocaleString()} de ${d.totalCobrar.toLocaleString()}</p>
+                    )}
+                  </div>
+                  <a
+                    href={getWhatsAppCobroUrl(d.cliente, d.saldo, d.servicios)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center rounded-md h-9 w-9 text-success hover:bg-success/10 transition-colors shrink-0"
+                    title={'Cobrar a ' + d.cliente.nombre}
+                  >
+                    <MessageCircle className="h-4.5 w-4.5" />
+                  </a>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Monthly goal */}
       <MetaMensual totalIngresos={totalIngresos} mesKey={fmtDate(selectedDate, 'yyyy-MM')} />
@@ -158,7 +262,7 @@ export default function FinanzasPage() {
       {/* Rentabilidad */}
       <TablaRentabilidad />
 
-      {/* Pagos por país */}
+      {/* Pagos por pais */}
       <ResumenPorPais selectedDate={selectedDate} />
 
       {/* Pagos recientes */}
