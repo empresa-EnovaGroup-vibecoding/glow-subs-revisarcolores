@@ -51,7 +51,9 @@ export const PagoSchema = z.object({
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida'),
   referencia: z.string().max(200).optional(),
   corteId: z.string().uuid().optional(),
-});
+  comprobanteUrl: z.string().url().optional(),
+  datosExtraidos: z.record(z.unknown()).optional(),
+}).passthrough();
 
 export const CorteSchema = z.object({
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida'),
