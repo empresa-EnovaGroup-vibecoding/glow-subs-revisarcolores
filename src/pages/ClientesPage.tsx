@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { Cliente, PaisCliente } from '@/types';
 import { format, differenceInDays, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Plus, Trash2, Edit2, Phone, Users } from 'lucide-react';
+import { Plus, Trash2, Edit2, Phone, Users, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,6 +34,7 @@ export default function ClientesPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // New client form state
   const [newForm, setNewForm] = useState({ nombre: '', whatsapp: '', pais: '' as PaisCliente | '' });
@@ -42,6 +43,22 @@ export default function ClientesPage() {
   // Edit client form state
   const [editForm, setEditForm] = useState({ nombre: '', whatsapp: '', pais: '' as PaisCliente | '', notas: '' });
 
+  const clientesFiltrados = useMemo(() => {
+    if (!searchQuery) return clientes;
+    const q = searchQuery.toLowerCase();
+    return clientes.filter(c => {
+      const nombre = c.nombre.toLowerCase();
+      const whatsapp = c.whatsapp.toLowerCase();
+      const pais = (c.pais || '').toLowerCase();
+      // Also search in service names
+      const subs = getSuscripcionesByCliente(c.id);
+      const servicioNames = subs.map(s => {
+        const serv = getServicioById(s.servicioId);
+        return serv?.nombre?.toLowerCase() || '';
+      }).join(' ');
+      return nombre.includes(q) || whatsapp.includes(q) || pais.includes(q) || servicioNames.includes(q);
+    });
+  }, [clientes, searchQuery, getSuscripcionesByCliente, getServicioById]);
 
   const resetCreate = () => {
     setNewForm({ nombre: '', whatsapp: '', pais: '' });
@@ -75,8 +92,22 @@ export default function ClientesPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-lg font-semibold">Clientes</h1>
-          <p className="text-sm text-muted-foreground">{clientes.length} clientes registrados</p>
+          <p className="text-sm text-muted-foreground">
+            {searchQuery
+              ? clientesFiltrados.length + ' de ' + clientes.length + ' clientes'
+              : clientes.length + ' clientes registrados'}
+          </p>
         </div>
+        <div className="flex items-center gap-2">
+          <div className="relative w-52">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Buscar nombre, tel, servicio..."
+              className="pl-8 h-8 text-xs"
+            />
+          </div>
 
         {/* === 1. NEW CLIENT DIALOG === */}
         <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) resetCreate(); }}>
@@ -140,6 +171,7 @@ export default function ClientesPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* === 2. CLIENT TABLE === */}
@@ -164,7 +196,7 @@ export default function ClientesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {clientes.map(cliente => {
+              {clientesFiltrados.map(cliente => {
                 const subs = getSuscripcionesByCliente(cliente.id);
                 const activeSubs = subs.filter(s => s.estado === 'activa');
 
