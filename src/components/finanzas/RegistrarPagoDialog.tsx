@@ -109,11 +109,13 @@ export default function RegistrarPagoDialog() {
     setAnalyzing(true);
     try {
       const base64 = await fileToBase64(file);
-      const session = await supabaseExternal.auth.getSession();
+      const { supabase } = await import('@/integrations/supabase/client');
+      const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
 
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const response = await fetch(
-        'https://vunhyixxpeqdevoruaqe.supabase.co/functions/v1/extract-receipt',
+        `${supabaseUrl}/functions/v1/extract-receipt`,
         {
           method: 'POST',
           headers: {
@@ -207,7 +209,7 @@ export default function RegistrarPagoDialog() {
       metodo: form.metodo as MetodoPago,
       fecha: form.fecha,
       comprobanteUrl,
-      datosExtraidos: aiData ?? undefined,
+      datosExtraidos: aiData ? (aiData as unknown as Record<string, unknown>) : undefined,
     });
 
     toast.success('Pago registrado: $' + montoUSD.toFixed(2) + ' USD');
