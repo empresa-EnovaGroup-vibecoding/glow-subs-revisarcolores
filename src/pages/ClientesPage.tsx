@@ -54,7 +54,7 @@ export default function ClientesPage() {
   const [pendingSubs, setPendingSubs] = useState<PendingSuscripcion[]>([]);
 
   // Edit client form state
-  const [editForm, setEditForm] = useState({ nombre: '', whatsapp: '', pais: '' as PaisCliente | '' });
+  const [editForm, setEditForm] = useState({ nombre: '', whatsapp: '', pais: '' as PaisCliente | '', notas: '' });
 
   // All service IDs for consistent color mapping
   const allServiceIds = useMemo(() => servicios.map(s => s.id), [servicios]);
@@ -77,12 +77,12 @@ export default function ClientesPage() {
 
   const openEdit = (cliente: Cliente) => {
     setEditingCliente(cliente);
-    setEditForm({ nombre: cliente.nombre, whatsapp: cliente.whatsapp, pais: cliente.pais || '' });
+    setEditForm({ nombre: cliente.nombre, whatsapp: cliente.whatsapp, pais: cliente.pais || '', notas: cliente.notas || '' });
   };
 
   const handleSaveEdit = () => {
     if (!editingCliente) return;
-    updateCliente({ ...editingCliente, ...editForm, pais: editForm.pais || undefined });
+    updateCliente({ ...editingCliente, ...editForm, pais: editForm.pais || undefined, notas: editForm.notas || undefined });
     setEditingCliente(null);
   };
 
@@ -305,9 +305,11 @@ export default function ClientesPage() {
                 nombre={editForm.nombre}
                 whatsapp={editForm.whatsapp}
                 pais={editForm.pais}
+                notas={editForm.notas}
                 onNombreChange={(v) => setEditForm(f => ({ ...f, nombre: v }))}
                 onWhatsappChange={(v) => setEditForm(f => ({ ...f, whatsapp: v }))}
                 onPaisChange={(v) => setEditForm(f => ({ ...f, pais: v }))}
+                onNotasChange={(v) => setEditForm(f => ({ ...f, notas: v }))}
               />
               <Button className="w-full" onClick={handleSaveEdit}>
                 Guardar Datos del Cliente

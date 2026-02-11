@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Clock } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -22,12 +23,14 @@ interface Props {
   nombre: string;
   whatsapp: string;
   pais: PaisCliente | '';
+  notas: string;
   onNombreChange: (v: string) => void;
   onWhatsappChange: (v: string) => void;
   onPaisChange: (v: PaisCliente | '') => void;
+  onNotasChange: (v: string) => void;
 }
 
-export default function ClienteEditPanel({ clienteId, nombre, whatsapp, pais, onNombreChange, onWhatsappChange, onPaisChange }: Props) {
+export default function ClienteEditPanel({ clienteId, nombre, whatsapp, pais, notas, onNombreChange, onWhatsappChange, onPaisChange, onNotasChange }: Props) {
   const {
     getSuscripcionesByCliente, addSuscripcion, updateSuscripcion, deleteSuscripcion,
   } = useData();
@@ -101,6 +104,17 @@ export default function ClienteEditPanel({ clienteId, nombre, whatsapp, pais, on
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Notas del cliente */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Notas</Label>
+        <Textarea
+          value={notas}
+          onChange={e => onNotasChange(e.target.value)}
+          placeholder="Notas sobre el cliente (ej: horario de contacto, preferencias, etc.)"
+          className="min-h-[60px] text-sm resize-none"
+        />
       </div>
 
       <Separator />

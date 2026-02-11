@@ -79,10 +79,10 @@ function rowToPanel(r: any): Panel {
 }
 
 function clienteToRow(c: Cliente) {
-  return { id: c.id, nombre: c.nombre, whatsapp: c.whatsapp, pais: c.pais || null };
+  return { id: c.id, nombre: c.nombre, whatsapp: c.whatsapp, pais: c.pais || null, notas: c.notas || null };
 }
 function rowToCliente(r: any): Cliente {
-  return { id: r.id, nombre: r.nombre, whatsapp: r.whatsapp, pais: r.pais || undefined };
+  return { id: r.id, nombre: r.nombre, whatsapp: r.whatsapp, pais: r.pais || undefined, notas: r.notas || undefined };
 }
 
 function servicioToRow(s: Servicio) {

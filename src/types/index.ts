@@ -33,6 +33,7 @@ export interface Cliente {
   nombre: string;
   whatsapp: string;
   pais?: PaisCliente;
+  notas?: string;
 }
 
 export interface Servicio {
