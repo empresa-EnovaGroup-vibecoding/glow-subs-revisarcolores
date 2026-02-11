@@ -1,10 +1,10 @@
-import { useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useData } from '@/contexts/DataContext';
 import { format, isToday, isBefore, addDays, isAfter, startOfDay, differenceInDays, isSameMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   AlertTriangle, Clock, Users, Monitor, TrendingUp,
-  CalendarClock, MessageCircle, RefreshCw, Calendar,
+  CalendarClock, MessageCircle, RefreshCw, ChevronDown, ChevronUp, CheckCircle2,
 } from 'lucide-react';
 import { getWhatsAppNotificationUrl } from '@/lib/whatsapp';
 import { Suscripcion } from '@/types';
@@ -18,28 +18,14 @@ export default function Dashboard() {
     getPanelById, getServicioById, updateSuscripcion,
   } = useData();
 
+  const [showPaneles, setShowPaneles] = useState(false);
+
   const today = startOfDay(new Date());
-  const in3Days = addDays(today, 3);
   const in7Days = addDays(today, 7);
 
   const getCliente = (clienteId: string) => clientes.find(c => c.id === clienteId);
 
-  // --- Sections data ---
-  const vencimientosHoy = useMemo(() =>
-    suscripciones.filter(s => s.estado === 'activa' && isToday(new Date(s.fechaVencimiento))),
-    [suscripciones]
-  );
-
-  const vencimientosProximos3 = useMemo(() =>
-    suscripciones.filter(s => {
-      if (s.estado !== 'activa') return false;
-      const fecha = startOfDay(new Date(s.fechaVencimiento));
-      return isAfter(fecha, today) && !isToday(new Date(s.fechaVencimiento))
-        && (isBefore(fecha, in3Days) || fecha.getTime() === in3Days.getTime());
-    }),
-    [suscripciones, today, in3Days]
-  );
-
+  // --- Suscripciones data ---
   const vencidos = useMemo(() =>
     suscripciones.filter(s =>
       s.estado === 'activa' && isBefore(startOfDay(new Date(s.fechaVencimiento)), today)
@@ -47,21 +33,25 @@ export default function Dashboard() {
     [suscripciones, today]
   );
 
-  const vencimientosProximos7 = useMemo(() =>
+  const vencimientosHoy = useMemo(() =>
+    suscripciones.filter(s => s.estado === 'activa' && isToday(new Date(s.fechaVencimiento))),
+    [suscripciones]
+  );
+
+  const vencimientosProximos = useMemo(() =>
     suscripciones.filter(s => {
       if (s.estado !== 'activa') return false;
       const fecha = startOfDay(new Date(s.fechaVencimiento));
-      return isAfter(fecha, in3Days) && (isBefore(fecha, in7Days) || fecha.getTime() === in7Days.getTime());
-    }),
-    [suscripciones, in3Days, in7Days]
+      return isAfter(fecha, today) && !isToday(new Date(s.fechaVencimiento))
+        && (isBefore(fecha, in7Days) || fecha.getTime() === in7Days.getTime());
+    }).sort((a, b) => new Date(a.fechaVencimiento).getTime() - new Date(b.fechaVencimiento).getTime()),
+    [suscripciones, today, in7Days]
   );
 
   // --- Stats ---
   const clientesActivos = useMemo(() => {
-    const idsConSubActiva = new Set(
-      suscripciones.filter(s => s.estado === 'activa').map(s => s.clienteId)
-    );
-    return idsConSubActiva.size;
+    const ids = new Set(suscripciones.filter(s => s.estado === 'activa').map(s => s.clienteId));
+    return ids.size;
   }, [suscripciones]);
 
   const panelesActivos = useMemo(() =>
@@ -69,33 +59,29 @@ export default function Dashboard() {
     [paneles]
   );
 
-  // Ganancia = real income (USDT from cortes + USD payments) - gastos (panel costs)
   const ganancia = useMemo(() => {
     const selectedDate = new Date();
     const totalGastos = paneles
       .filter(p => p.estado === 'activo')
       .reduce((sum, p) => sum + p.costoMensual, 0);
-
     const cortesDelMes = cortes.filter(c => isSameMonth(new Date(c.fecha), selectedDate));
     const usdtFromCortes = cortesDelMes.reduce((sum, c) => sum + c.usdtRecibidoReal, 0);
-
     const pagosDirectosUSD = pagos.filter(p =>
       isSameMonth(new Date(p.fecha), selectedDate) &&
       (!p.moneda || p.moneda === 'USD') &&
       !p.corteId
     );
     const usdDirectos = pagosDirectosUSD.reduce((sum, p) => sum + p.monto, 0);
-
     return Math.round((usdtFromCortes + usdDirectos - totalGastos) * 100) / 100;
   }, [paneles, cortes, pagos]);
 
-  // Paneles por vencer (NEW)
-  const panelesProxVencer = useMemo(() => {
+  // --- Paneles por vencer ---
+  const panelesUrgentes = useMemo(() => {
     const hoy = new Date();
     return paneles.filter(p => {
       if (!p.fechaExpiracion) return false;
       const diff = differenceInDays(parseISO(p.fechaExpiracion), hoy);
-      return diff >= 0 && diff <= 15;
+      return diff <= 15; // includes expired (negative) and expiring soon
     }).sort((a, b) => {
       const diffA = differenceInDays(parseISO(a.fechaExpiracion), new Date());
       const diffB = differenceInDays(parseISO(b.fechaExpiracion), new Date());
@@ -103,31 +89,17 @@ export default function Dashboard() {
     });
   }, [paneles]);
 
-  const panelesVencidos = useMemo(() => {
-    const hoy = new Date();
-    return paneles.filter(p => {
-      if (!p.fechaExpiracion) return false;
-      const diff = differenceInDays(parseISO(p.fechaExpiracion), hoy);
-      return diff < 0;
-    });
-  }, [paneles]);
+  // --- Total urgentes ---
+  const totalUrgente = vencidos.length + vencimientosHoy.length;
+  const hayAlgo = vencidos.length > 0 || vencimientosHoy.length > 0 || vencimientosProximos.length > 0 || panelesUrgentes.length > 0;
 
   // --- Renovar action ---
   const handleRenovar = useCallback((sub: Suscripcion) => {
     const cliente = getCliente(sub.clienteId);
     const newFecha = format(addDays(new Date(sub.fechaVencimiento), 30), 'yyyy-MM-dd');
-    updateSuscripcion({
-      ...sub,
-      fechaVencimiento: newFecha,
-      estado: 'activa',
-    });
-    toast.success(`${cliente?.nombre || 'Cliente'} renovado hasta ${format(new Date(newFecha), 'dd MMM yyyy', { locale: es })}`);
+    updateSuscripcion({ ...sub, fechaVencimiento: newFecha, estado: 'activa' });
+    toast.success((cliente?.nombre || 'Cliente') + ' renovado hasta ' + format(new Date(newFecha), 'dd MMM yyyy', { locale: es }));
   }, [updateSuscripcion, clientes]);
-
-  // --- Scroll to section ---
-  const scrollToVencimientos = () => {
-    document.getElementById('vencimientos-hoy')?.scrollIntoView({ behavior: 'smooth' });
-  };
 
   // --- Row component ---
   const SuscripcionRow = ({ sub, tipo }: { sub: Suscripcion; tipo: 'hoy' | 'proximo' | 'vencido' }) => {
@@ -146,11 +118,11 @@ export default function Dashboard() {
       statusClass = 'text-destructive font-semibold';
     } else if (tipo === 'vencido') {
       const diasVencido = Math.abs(diasDiff);
-      statusLabel = `Venció hace ${diasVencido} día${diasVencido !== 1 ? 's' : ''}`;
+      statusLabel = 'Hace ' + diasVencido + 'd';
       statusClass = 'text-destructive';
     } else {
-      statusLabel = `Vence en ${diasDiff} día${diasDiff !== 1 ? 's' : ''}`;
-      statusClass = 'text-warning';
+      statusLabel = 'En ' + diasDiff + 'd';
+      statusClass = diasDiff <= 3 ? 'text-warning font-medium' : 'text-muted-foreground';
     }
 
     return (
@@ -159,7 +131,7 @@ export default function Dashboard() {
           <p className="font-medium truncate">{cliente.nombre}</p>
           <p className="text-xs text-muted-foreground truncate">{servicio?.nombre || 'Sin servicio'}</p>
         </div>
-        <span className={`text-xs whitespace-nowrap ${statusClass}`}>
+        <span className={'text-xs whitespace-nowrap ' + statusClass}>
           {statusLabel}
         </span>
         <div className="flex items-center gap-1 shrink-0">
@@ -177,7 +149,7 @@ export default function Dashboard() {
             size="icon"
             className="h-8 w-8 text-primary hover:bg-primary/10"
             onClick={() => handleRenovar(sub)}
-            title="Renovar +30 días"
+            title="Renovar +30 dias"
           >
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
@@ -186,187 +158,140 @@ export default function Dashboard() {
     );
   };
 
-  // --- Section component ---
-  const VencimientoSection = ({
-    id,
-    title,
-    icon: Icon,
-    iconColor,
-    borderColor,
-    bgColor,
-    badgeColor,
-    items,
-    tipo,
-    emptyMessage,
-  }: {
-    id?: string;
-    title: string;
-    icon: React.ElementType;
-    iconColor: string;
-    borderColor: string;
-    bgColor: string;
-    badgeColor: string;
-    items: Suscripcion[];
-    tipo: 'hoy' | 'proximo' | 'vencido';
-    emptyMessage: string;
-  }) => (
-    <div id={id} className={`rounded-lg border ${borderColor} ${bgColor} p-5`}>
-      <div className="mb-4 flex items-center gap-2">
-        <Icon className={`h-4 w-4 ${iconColor}`} />
-        <h3 className={`text-sm font-semibold ${iconColor}`}>{title}</h3>
-        <span className={`alert-badge ${badgeColor}`}>{items.length}</span>
-      </div>
-      {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{emptyMessage}</p>
-      ) : (
-        <div className="space-y-2">
-          {items.map(s => <SuscripcionRow key={s.id} sub={s} tipo={tipo} />)}
-        </div>
-      )}
-    </div>
-  );
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <InstallBanner />
+
       {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="stat-card">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">Clientes Activos</p>
-            <Users className="h-4 w-4 text-primary" />
+            <p className="text-xs text-muted-foreground">Clientes Activos</p>
+            <Users className="h-3.5 w-3.5 text-primary" />
           </div>
-          <p className="mt-2 text-2xl font-bold">{clientesActivos}</p>
-          <p className="text-[11px] text-muted-foreground mt-1">Con suscripción activa</p>
+          <p className="mt-1.5 text-xl font-bold">{clientesActivos}</p>
         </div>
 
         <div className="stat-card">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">Paneles Activos</p>
-            <Monitor className="h-4 w-4 text-primary" />
+            <p className="text-xs text-muted-foreground">Paneles Activos</p>
+            <Monitor className="h-3.5 w-3.5 text-primary" />
           </div>
-          <p className="mt-2 text-2xl font-bold">{panelesActivos}</p>
-          <p className="text-[11px] text-muted-foreground mt-1">En funcionamiento</p>
+          <p className="mt-1.5 text-xl font-bold">{panelesActivos}</p>
         </div>
 
         <div className="stat-card">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">Ganancia Neta</p>
-            <TrendingUp className="h-4 w-4 text-success" />
+            <p className="text-xs text-muted-foreground">Ganancia Neta</p>
+            <TrendingUp className="h-3.5 w-3.5 text-success" />
           </div>
-          <p className={`mt-2 text-2xl font-bold ${ganancia >= 0 ? 'text-success' : 'text-destructive'}`}>
+          <p className={'mt-1.5 text-xl font-bold ' + (ganancia >= 0 ? 'text-success' : 'text-destructive')}>
             ${ganancia.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-1">Ingresos reales - Gastos</p>
         </div>
 
-        <div
-          className="stat-card cursor-pointer hover:border-destructive/50 transition-colors"
-          onClick={scrollToVencimientos}
-        >
+        <div className="stat-card">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">Vencimientos Hoy</p>
-            <AlertTriangle className={`h-4 w-4 ${vencimientosHoy.length > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+            <p className="text-xs text-muted-foreground">Requieren Accion</p>
+            <AlertTriangle className={'h-3.5 w-3.5 ' + (totalUrgente > 0 ? 'text-destructive' : 'text-muted-foreground')} />
           </div>
-          <p className={`mt-2 text-2xl font-bold ${vencimientosHoy.length > 0 ? 'text-destructive' : ''}`}>
-            {vencimientosHoy.length}
-          </p>
-          <p className="text-[11px] text-muted-foreground mt-1">
-            {vencimientosHoy.length > 0 ? 'Click para ver detalles ↓' : 'Todo al día ✓'}
+          <p className={'mt-1.5 text-xl font-bold ' + (totalUrgente > 0 ? 'text-destructive' : '')}>
+            {totalUrgente}
           </p>
         </div>
       </div>
 
-      {/* Paneles por vencer (NEW SECTION) */}
-      {(panelesProxVencer.length > 0 || panelesVencidos.length > 0) && (
-        <div className="rounded-lg border border-warning/30 bg-warning/5 p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <Monitor className="h-4 w-4 text-warning" />
-            <h3 className="text-sm font-semibold text-warning">Paneles por Vencer</h3>
-            <span className="alert-badge bg-warning/10 text-warning">{panelesProxVencer.length + panelesVencidos.length}</span>
-          </div>
-          <div className="space-y-2">
-            {panelesVencidos.map(p => {
-              const dias = Math.abs(differenceInDays(parseISO(p.fechaExpiracion), new Date()));
-              return (
-                <div key={p.id} className="flex items-center justify-between rounded-md bg-card border border-destructive/30 p-3 text-sm gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{p.nombre}</p>
-                    <p className="text-xs text-muted-foreground truncate">{p.servicioAsociado}</p>
+      {/* Paneles por vencer - desplegable compacto */}
+      {panelesUrgentes.length > 0 && (
+        <div className="rounded-lg border border-warning/30 bg-warning/5">
+          <button
+            onClick={() => setShowPaneles(!showPaneles)}
+            className="flex items-center justify-between w-full px-4 py-3 text-left"
+          >
+            <div className="flex items-center gap-2">
+              <Monitor className="h-4 w-4 text-warning" />
+              <span className="text-sm font-semibold text-warning">Paneles por Vencer</span>
+              <span className="alert-badge bg-warning/10 text-warning">{panelesUrgentes.length}</span>
+            </div>
+            {showPaneles ? <ChevronUp className="h-4 w-4 text-warning" /> : <ChevronDown className="h-4 w-4 text-warning" />}
+          </button>
+          {showPaneles && (
+            <div className="px-4 pb-3 space-y-1">
+              {panelesUrgentes.map(p => {
+                const dias = differenceInDays(parseISO(p.fechaExpiracion), new Date());
+                const vencido = dias < 0;
+                return (
+                  <div key={p.id} className="flex items-center justify-between text-sm py-1.5 px-2 rounded bg-card/50">
+                    <span className="font-medium truncate">{p.nombre}</span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-[11px] text-muted-foreground">{p.servicioAsociado}</span>
+                      <span className={'text-xs font-medium ' + (vencido ? 'text-destructive' : dias <= 3 ? 'text-destructive' : 'text-warning')}>
+                        {vencido ? 'Vencido' : dias === 0 ? 'Hoy' : dias + 'd'}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-xs text-destructive font-semibold whitespace-nowrap">Vencido hace {dias}d</span>
-                </div>
-              );
-            })}
-            {panelesProxVencer.map(p => {
-              const dias = differenceInDays(parseISO(p.fechaExpiracion), new Date());
-              return (
-                <div key={p.id} className="flex items-center justify-between rounded-md bg-card border border-border/50 p-3 text-sm gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{p.nombre}</p>
-                    <p className="text-xs text-muted-foreground truncate">{p.servicioAsociado}</p>
-                  </div>
-                  <span className={`text-xs whitespace-nowrap ${dias <= 3 ? 'text-destructive font-semibold' : 'text-warning'}`}>
-                    {dias === 0 ? 'Vence hoy' : `Vence en ${dias}d`}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Vencimiento sections */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <VencimientoSection
-          id="vencimientos-hoy"
-          title="Vencimientos de Hoy"
-          icon={AlertTriangle}
-          iconColor="text-destructive"
-          borderColor="border-destructive/30"
-          bgColor="bg-destructive/5"
-          badgeColor="bg-destructive/10 text-destructive"
-          items={vencimientosHoy}
-          tipo="hoy"
-          emptyMessage="No hay vencimientos hoy ✓"
-        />
+      {/* Todo al dia message */}
+      {!hayAlgo && (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-success/30 bg-success/5 py-10 text-center">
+          <CheckCircle2 className="h-10 w-10 text-success mb-3" />
+          <p className="text-base font-semibold text-success">Todo al dia</p>
+          <p className="text-sm text-muted-foreground mt-1">No hay vencimientos pendientes ni paneles por vencer</p>
+        </div>
+      )}
 
-        <VencimientoSection
-          title="Próximos 3 Días"
-          icon={CalendarClock}
-          iconColor="text-warning"
-          borderColor="border-warning/30"
-          bgColor="bg-warning/5"
-          badgeColor="bg-warning/10 text-warning"
-          items={vencimientosProximos3}
-          tipo="proximo"
-          emptyMessage="Sin vencimientos próximos"
-        />
+      {/* Vencimiento sections - only show non-empty, ordered by urgency */}
+      {hayAlgo && (
+        <div className="space-y-4">
+          {/* 1. Vencidos (most urgent) */}
+          {vencidos.length > 0 && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-destructive" />
+                <h3 className="text-sm font-semibold text-destructive">Vencidos</h3>
+                <span className="alert-badge bg-destructive/10 text-destructive">{vencidos.length}</span>
+              </div>
+              <div className="space-y-2">
+                {vencidos.map(s => <SuscripcionRow key={s.id} sub={s} tipo="vencido" />)}
+              </div>
+            </div>
+          )}
 
-        <VencimientoSection
-          title="Vencidos"
-          icon={Clock}
-          iconColor="text-destructive"
-          borderColor="border-destructive/30"
-          bgColor="bg-destructive/5"
-          badgeColor="bg-destructive/10 text-destructive"
-          items={vencidos}
-          tipo="vencido"
-          emptyMessage="No hay suscripciones vencidas ✓"
-        />
+          {/* 2. Vence Hoy */}
+          {vencimientosHoy.length > 0 && (
+            <div id="vencimientos-hoy" className="rounded-lg border border-destructive/30 bg-destructive/5 p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <h3 className="text-sm font-semibold text-destructive">Vence Hoy</h3>
+                <span className="alert-badge bg-destructive/10 text-destructive">{vencimientosHoy.length}</span>
+              </div>
+              <div className="space-y-2">
+                {vencimientosHoy.map(s => <SuscripcionRow key={s.id} sub={s} tipo="hoy" />)}
+              </div>
+            </div>
+          )}
 
-        <VencimientoSection
-          title="Próximos 7 Días"
-          icon={Calendar}
-          iconColor="text-primary"
-          borderColor="border-primary/20"
-          bgColor="bg-primary/5"
-          badgeColor="bg-primary/10 text-primary"
-          items={vencimientosProximos7}
-          tipo="proximo"
-          emptyMessage="Sin vencimientos esta semana"
-        />
-      </div>
+          {/* 3. Proximos 7 dias */}
+          {vencimientosProximos.length > 0 && (
+            <div className="rounded-lg border border-warning/30 bg-warning/5 p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <CalendarClock className="h-4 w-4 text-warning" />
+                <h3 className="text-sm font-semibold text-warning">Proximos 7 Dias</h3>
+                <span className="alert-badge bg-warning/10 text-warning">{vencimientosProximos.length}</span>
+              </div>
+              <div className="space-y-2">
+                {vencimientosProximos.map(s => <SuscripcionRow key={s.id} sub={s} tipo="proximo" />)}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
