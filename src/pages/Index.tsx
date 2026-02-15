@@ -1,16 +1,17 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { PageView } from '@/types';
 import { DataProvider } from '@/contexts/DataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/AppLayout';
 import Dashboard from '@/pages/Dashboard';
-import CalendarioPage from '@/pages/CalendarioPage';
-import PanelesPage from '@/pages/PanelesPage';
-import ClientesPage from '@/pages/ClientesPage';
-import FinanzasPage from '@/pages/FinanzasPage';
-import ServiciosPage from '@/pages/ServiciosPage';
-import ConfiguracionPage from '@/pages/ConfiguracionPage';
-import LoginPage from '@/pages/LoginPage';
+
+const CalendarioPage = lazy(() => import('@/pages/CalendarioPage'));
+const PanelesPage = lazy(() => import('@/pages/PanelesPage'));
+const ClientesPage = lazy(() => import('@/pages/ClientesPage'));
+const FinanzasPage = lazy(() => import('@/pages/FinanzasPage'));
+const ServiciosPage = lazy(() => import('@/pages/ServiciosPage'));
+const ConfiguracionPage = lazy(() => import('@/pages/ConfiguracionPage'));
+const LoginPage = lazy(() => import('@/pages/LoginPage'));
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<PageView>('dashboard');
@@ -36,7 +37,9 @@ function AppContent() {
   return (
     <DataProvider>
       <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
-        {renderPage()}
+        <Suspense fallback={<div className="flex items-center justify-center py-20 text-sm text-muted-foreground">Cargando...</div>}>
+          {renderPage()}
+        </Suspense>
       </AppLayout>
     </DataProvider>
   );
