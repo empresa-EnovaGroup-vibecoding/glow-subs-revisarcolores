@@ -166,10 +166,10 @@ export default function ClientesPage() {
             </SelectContent>
           </Select>
 
-        {/* === 1. NEW CLIENT DIALOG === */}
+        {/* === NEW CLIENT DIALOG === */}
         <Dialog open={createOpen} onOpenChange={(v) => { setCreateOpen(v); if (!v) resetCreate(); }}>
           <DialogTrigger asChild>
-            <Button size="sm" className="gap-1.5">
+            <Button size="sm" className="gap-1.5 hidden md:inline-flex">
               <Plus className="h-4 w-4" />
               Nuevo Cliente
             </Button>
@@ -231,6 +231,15 @@ export default function ClientesPage() {
         </div>
       </div>
 
+      {/* Mobile FAB for new client */}
+      <button
+        onClick={() => setCreateOpen(true)}
+        className="fixed bottom-6 right-6 z-40 flex md:hidden h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-95 transition-transform"
+        aria-label="Nuevo Cliente"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
+
       {/* === 2. CLIENT TABLE === */}
       {clientes.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-center">
@@ -241,63 +250,152 @@ export default function ClientesPage() {
           <p className="mt-1 text-xs text-muted-foreground">Registra tu primer cliente</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full text-sm">
-            <thead className="border-b border-border bg-muted/50">
-              <tr>
-                <th className="table-header px-4 py-3 text-left">Nombre</th>
-                <th className="table-header px-4 py-3 text-left">País</th>
-                <th className="table-header px-4 py-3 text-left">WhatsApp</th>
-                <th className="table-header px-4 py-3 text-left">Servicios y Vencimientos</th>
-                <th className="table-header px-4 py-3 text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {clientesFiltrados.map(cliente => {
-                const subs = subsMap[cliente.id] || [];
-                const activeSubs = subs.filter(s => s.estado === 'activa');
+        <>
+          {/* === MOBILE CARDS (< md) === */}
+          <div className="space-y-3 md:hidden pb-20">
+            {clientesFiltrados.map(cliente => {
+              const subs = subsMap[cliente.id] || [];
+              const activeSubs = subs.filter(s => s.estado === 'activa');
+              const grouped = activeSubs.reduce<Record<string, { nombre: string; fechas: string[] }>>((acc, sub) => {
+                const servicio = getServicioById(sub.servicioId);
+                const nombre = servicio?.nombre || '?';
+                if (!acc[nombre]) acc[nombre] = { nombre, fechas: [] };
+                acc[nombre].fechas.push(sub.fechaVencimiento);
+                return acc;
+              }, {});
+              const serviciosAgrupados = Object.values(grouped);
+              const hoy = startOfDay(new Date());
 
-                // Group subscriptions by service name
-                const grouped = activeSubs.reduce<Record<string, { servicioId: string; nombre: string; fechas: string[] }>>((acc, sub) => {
-                  const servicio = getServicioById(sub.servicioId);
-                  const nombre = servicio?.nombre || '?';
-                  if (!acc[nombre]) acc[nombre] = { servicioId: sub.servicioId, nombre, fechas: [] };
-                  acc[nombre].fechas.push(sub.fechaVencimiento);
-                  return acc;
-                }, {});
-                const serviciosAgrupados = Object.values(grouped);
-
-                return (
-                  <tr key={cliente.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3">
+              return (
+                <div key={cliente.id} className="rounded-lg border border-border bg-card p-4 space-y-3">
+                  {/* Header row */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
                       <button
                         onClick={() => openEdit(cliente)}
-                        className="font-medium hover:text-primary hover:underline text-left cursor-pointer"
-                        title="Ver datos del cliente"
+                        className="font-medium text-sm hover:text-primary hover:underline text-left cursor-pointer truncate block max-w-full"
                       >
                         {cliente.nombre}
                       </button>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{cliente.pais || '—'}</td>
-                    <td className="px-4 py-3">
-                      <a
-                        href={`https://wa.me/${cliente.whatsapp.replace(/\D/g, '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-primary hover:underline"
+                      <span className="text-xs text-muted-foreground">{cliente.pais || '—'}</span>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        onClick={() => openEdit(cliente)}
+                        className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                       >
-                        <Phone className="h-3 w-3" />
-                        {cliente.whatsapp}
-                      </a>
-                    </td>
-                    <td className="px-4 py-3">
-                      {serviciosAgrupados.length === 0 ? (
-                        <span className="text-xs text-muted-foreground/60">Sin servicios</span>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {serviciosAgrupados.map(g => {
-                            const hoy = startOfDay(new Date());
-                            return (
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteCliente(cliente.id)}
+                        className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* WhatsApp */}
+                  <a
+                    href={`https://wa.me/${cliente.whatsapp.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                    {cliente.whatsapp}
+                  </a>
+
+                  {/* Services */}
+                  {serviciosAgrupados.length > 0 && (
+                    <div className="space-y-1.5 border-t border-border pt-2">
+                      {serviciosAgrupados.map(g => (
+                        <div key={g.nombre} className="flex flex-wrap items-center gap-2">
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium shrink-0 ${BADGE_CLASS}`}>
+                            {g.fechas.length > 1 ? g.fechas.length + 'x ' : ''}{g.nombre}
+                          </span>
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                            {g.fechas
+                              .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+                              .map((fecha, i) => {
+                                const dias = differenceInDays(startOfDay(new Date(fecha)), hoy);
+                                const vencido = dias < 0;
+                                const porVencer = dias >= 0 && dias <= 5;
+                                const colorFecha = vencido ? 'text-destructive' : porVencer ? 'text-warning' : 'text-muted-foreground';
+                                const label = vencido ? 'Vencido' : dias === 0 ? 'Hoy' : dias + 'd';
+                                return (
+                                  <span key={i} className={`text-[11px] ${colorFecha}`}>
+                                    {format(new Date(fecha), 'dd MMM', { locale: es })}{' '}
+                                    <span className={`font-semibold ${vencido ? 'text-destructive' : porVencer ? 'text-warning' : 'text-success'}`}>
+                                      {label}
+                                    </span>
+                                  </span>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* === DESKTOP TABLE (>= md) === */}
+          <div className="hidden md:block overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead className="border-b border-border bg-muted/50">
+                <tr>
+                  <th className="table-header px-4 py-3 text-left">Nombre</th>
+                  <th className="table-header px-4 py-3 text-left">País</th>
+                  <th className="table-header px-4 py-3 text-left">WhatsApp</th>
+                  <th className="table-header px-4 py-3 text-left">Servicios y Vencimientos</th>
+                  <th className="table-header px-4 py-3 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {clientesFiltrados.map(cliente => {
+                  const subs = subsMap[cliente.id] || [];
+                  const activeSubs = subs.filter(s => s.estado === 'activa');
+                  const grouped = activeSubs.reduce<Record<string, { nombre: string; fechas: string[] }>>((acc, sub) => {
+                    const servicio = getServicioById(sub.servicioId);
+                    const nombre = servicio?.nombre || '?';
+                    if (!acc[nombre]) acc[nombre] = { nombre, fechas: [] };
+                    acc[nombre].fechas.push(sub.fechaVencimiento);
+                    return acc;
+                  }, {});
+                  const serviciosAgrupados = Object.values(grouped);
+                  const hoy = startOfDay(new Date());
+
+                  return (
+                    <tr key={cliente.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => openEdit(cliente)}
+                          className="font-medium hover:text-primary hover:underline text-left cursor-pointer"
+                        >
+                          {cliente.nombre}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{cliente.pais || '—'}</td>
+                      <td className="px-4 py-3">
+                        <a
+                          href={`https://wa.me/${cliente.whatsapp.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-primary hover:underline"
+                        >
+                          <Phone className="h-3 w-3" />
+                          {cliente.whatsapp}
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">
+                        {serviciosAgrupados.length === 0 ? (
+                          <span className="text-xs text-muted-foreground/60">Sin servicios</span>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {serviciosAgrupados.map(g => (
                               <div key={g.nombre} className="flex items-center gap-2">
                                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium shrink-0 ${BADGE_CLASS}`}>
                                   {g.fechas.length > 1 ? g.fechas.length + 'x ' : ''}{g.nombre}
@@ -310,13 +408,10 @@ export default function ClientesPage() {
                                       const vencido = dias < 0;
                                       const porVencer = dias >= 0 && dias <= 5;
                                       const colorFecha = vencido ? 'text-destructive' : porVencer ? 'text-warning' : 'text-muted-foreground';
-                                      const label = vencido
-                                        ? 'Vencido'
-                                        : dias === 0 ? 'Hoy' : dias + 'd';
+                                      const label = vencido ? 'Vencido' : dias === 0 ? 'Hoy' : dias + 'd';
                                       return (
                                         <span key={i} className={`text-[10px] ${colorFecha}`}>
-                                          {format(new Date(fecha), 'dd MMM', { locale: es })}
-                                          {' '}
+                                          {format(new Date(fecha), 'dd MMM', { locale: es })}{' '}
                                           <span className={`font-semibold ${vencido ? 'text-destructive' : porVencer ? 'text-warning' : 'text-success'}`}>
                                             {label}
                                           </span>
@@ -325,33 +420,33 @@ export default function ClientesPage() {
                                     })}
                                 </div>
                               </div>
-                            );
-                          })}
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            onClick={() => openEdit(cliente)}
+                            className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => deleteCliente(cliente.id)}
+                            className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          onClick={() => openEdit(cliente)}
-                          className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => deleteCliente(cliente.id)}
-                          className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* === 3. EDIT CLIENT DIALOG === */}
