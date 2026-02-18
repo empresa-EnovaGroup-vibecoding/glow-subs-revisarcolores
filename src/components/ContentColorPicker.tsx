@@ -28,7 +28,10 @@ function ColorPickerItem({ label, value, onChange }: ColorPickerItemProps) {
         <p className="text-xs font-medium text-foreground mb-1">{label}</p>
         <Input
           value={value}
-          onChange={e => onChange(e.target.value)}
+          onChange={e => {
+            let v = e.target.value.replace(/^#+/, '#');
+            onChange(v);
+          }}
           className="h-8 w-28 font-mono text-xs"
         />
       </div>

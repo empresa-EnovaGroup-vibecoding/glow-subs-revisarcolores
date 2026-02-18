@@ -108,7 +108,7 @@ export default function PanelesResumen({ paneles, onFilterChange, activeFilter }
           className={`stat-card relative overflow-hidden ${card.alert ? 'ring-1 ring-destructive/30' : ''} ${card.clickable ? 'cursor-pointer hover:ring-2 hover:ring-destructive/50 transition-all' : ''} ${activeFilter === card.filterKey ? 'ring-2 ring-destructive/60 bg-destructive/5' : ''}`}
         >
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] font-medium text-muted-foreground truncate">{card.label}</p>
+            <p className="text-[10px] font-medium text-muted-foreground leading-tight">{card.label}</p>
             <card.icon className={`h-3.5 w-3.5 shrink-0 ${card.color}`} />
           </div>
 

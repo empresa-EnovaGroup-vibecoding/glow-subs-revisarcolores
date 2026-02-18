@@ -75,7 +75,7 @@ const PanelCard = memo(function PanelCard({ panel, clientesAsignados = [], searc
   const handleRenovar = () => {
     if (onRenovar) {
       onRenovar(panel);
-      toast.success(panel.nombre + ' renovado +30 dias');
+      toast.success(panel.nombre + ' renovado +30 días');
     }
   };
 
@@ -95,12 +95,12 @@ const PanelCard = memo(function PanelCard({ panel, clientesAsignados = [], searc
       {/* Expiration banner */}
       {estaVencido && (
         <div className="absolute top-0 left-0 right-0 bg-destructive text-destructive-foreground text-center text-[11px] font-bold py-1 rounded-t-lg -mt-px -mx-px">
-          VENCIDO hace {Math.abs(diasRestantes!)} dia{Math.abs(diasRestantes!) !== 1 ? 's' : ''}
+          VENCIDO hace {Math.abs(diasRestantes!)} día{Math.abs(diasRestantes!) !== 1 ? 's' : ''}
         </div>
       )}
       {porVencer && !estaVencido && (
         <div className="absolute top-0 left-0 right-0 bg-warning text-warning-foreground text-center text-[11px] font-bold py-1 rounded-t-lg -mt-px -mx-px">
-          Vence en {diasRestantes} dia{diasRestantes !== 1 ? 's' : ''}
+          Vence en {diasRestantes} día{diasRestantes !== 1 ? 's' : ''}
         </div>
       )}
 

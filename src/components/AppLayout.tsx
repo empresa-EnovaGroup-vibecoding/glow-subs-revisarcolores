@@ -193,7 +193,7 @@ export default function AppLayout({ currentPage, onNavigate, children }: AppLayo
           >
             <Menu className="h-5 w-5" />
           </button>
-          <h2 className="text-sm font-semibold capitalize">{currentPage}</h2>
+          <h2 className="text-sm font-semibold">{navItems.find(n => n.id === currentPage)?.label ?? currentPage}</h2>
         </header>
 
         <main

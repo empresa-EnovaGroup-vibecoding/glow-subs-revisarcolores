@@ -41,7 +41,7 @@ export default function CorteSemanalDialog() {
   // Quick presets
   const presets = [
     {
-      label: 'Ultimos 7 dias',
+      label: 'Últimos 7 días',
       apply: () => { setFechaInicio(subDays(today, 6)); setFechaFin(today); },
       active: isSameDay(fechaInicio, subDays(today, 6)) && isSameDay(fechaFin, today),
     },

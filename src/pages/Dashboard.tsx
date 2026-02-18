@@ -241,7 +241,7 @@ export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardPr
 
         <div className="stat-card">
           <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Requieren Accion</p>
+            <p className="text-xs text-muted-foreground">Requieren Acción</p>
             <AlertTriangle className={'h-3.5 w-3.5 ' + (totalUrgente > 0 ? 'text-destructive' : 'text-muted-foreground')} />
           </div>
           <p className={'mt-1.5 text-xl font-bold ' + (totalUrgente > 0 ? 'text-destructive' : '')}>
@@ -380,7 +380,7 @@ export default function Dashboard({ onNavigate, onNavigateToPanel }: DashboardPr
             <div className="rounded-lg border border-warning/30 bg-warning/5 p-5">
               <div className="mb-3 flex items-center gap-2">
                 <CalendarClock className="h-4 w-4 text-warning" />
-                <h3 className="text-sm font-semibold text-warning">Proximos 7 Dias</h3>
+                <h3 className="text-sm font-semibold text-warning">Próximos 7 Días</h3>
                 <span className="alert-badge bg-warning/10 text-warning">{vencimientosProximos.length}</span>
               </div>
               <div className="space-y-2">
