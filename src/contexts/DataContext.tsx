@@ -63,7 +63,7 @@ function generateId(): string {
 }
 
 // Safe Supabase operation - logs error and shows toast if it fails
-async function persist(promise: Promise<{ error?: { message: string } | null }>, action: string) {
+async function persist(promise: PromiseLike<{ error?: { message: string } | null }>, action: string) {
   try {
     const result = await promise;
     if (result?.error) {
