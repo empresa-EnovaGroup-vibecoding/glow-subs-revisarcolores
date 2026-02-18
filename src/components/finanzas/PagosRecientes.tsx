@@ -85,7 +85,7 @@ export default function PagosRecientes({ selectedDate, selectedProyecto }: Props
               <TableHead className="table-header">Metodo</TableHead>
               <TableHead className="table-header">Proyecto</TableHead>
               <TableHead className="table-header">Ref</TableHead>
-              <TableHead className="table-header text-right">Accion</TableHead>
+              <TableHead className="table-header text-right">Acción</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
